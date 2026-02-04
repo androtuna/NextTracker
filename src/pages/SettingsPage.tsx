@@ -3,7 +3,7 @@ import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, 
 import { getSettings, saveSettings } from '@/db/db';
 import { syncService } from '@/features/sync/syncService';
 import type { AppSettings } from '@/types';
-import { webdavClient } from '@/features/sync/webdav';
+
 import { useTranslation } from '@/lib/i18n';
 
 export default function SettingsPage() {
@@ -38,30 +38,13 @@ export default function SettingsPage() {
         }
     };
 
-    const handleTestConnection = async () => {
-        setStatus('syncing');
-        setMessage(t('testing'));
-        try {
-            const ok = await webdavClient.checkConnection();
-            if (ok === true) {
-                setStatus('success');
-                setMessage(t('testSuccess'));
-            } else {
-                // If it returns a string, it's an error message
-                setStatus('error');
-                setMessage(typeof ok === 'string' ? ok : t('testFail'));
-            }
-        } catch (e: any) {
-            setStatus('error');
-            setMessage(e.message || t('testFail'));
-        }
-    };
+
 
     const handleBackup = async () => {
         setStatus('syncing');
         setMessage(t('backingUp'));
         try {
-            await syncService.backup();
+            await syncService.exportToJSON();
             setStatus('success');
             setMessage(t('backupSuccess'));
         } catch (e: any) {
@@ -70,19 +53,27 @@ export default function SettingsPage() {
         }
     };
 
-    const handleRestore = async () => {
-        if (!confirm(t('restoreConfirm'))) return;
+    const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!confirm(t('restoreConfirm'))) {
+            event.target.value = ''; // Reset input
+            return;
+        }
 
         setStatus('syncing');
         setMessage(t('restoring'));
         try {
-            await syncService.restore();
+            await syncService.importFromJSON(file);
             setStatus('success');
             setMessage(t('restoreSuccess'));
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             setStatus('error');
             setMessage(`${t('error')}: ${e.message}`);
+        } finally {
+            event.target.value = ''; // Reset input so same file can be selected again
         }
     };
 
@@ -136,69 +127,40 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {/* Sync Configuration */}
+                {/* Backup & Restore */}
                 <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        {t('syncConfig')}
+                        {t('syncConfig')} (JSON)
                     </h2>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">{t('serverUrl')}</label>
-                                <input
-                                    type="text"
-                                    value={settings.nextcloudUrl || ''}
-                                    onChange={e => handleChange('nextcloudUrl', e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                    placeholder="https://cloud.example.com/remote.php/dav/files/user/"
-                                />
-                                <p className="text-xs text-gray-600 mt-1">{t('serverUrlDesc')}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">{t('username')}</label>
-                                <input
-                                    type="text"
-                                    value={settings.nextcloudUsername || ''}
-                                    onChange={e => handleChange('nextcloudUsername', e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">{t('password')}</label>
+                    <p className="text-gray-400 text-sm mb-6">
+                        {t('backupDesc') || 'Verilerinizi JSON dosyası olarak indirin veya geri yükleyin. Veriler cihazınızda kalır.'}
+                    </p>
+
+                    <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={handleBackup}
+                            disabled={status === 'syncing'}
+                            className="flex items-center gap-2 px-6 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 rounded-lg font-medium transition-colors border border-blue-600/20"
+                        >
+                            <CloudUpload className="size-5" />
+                            {t('downloadBackup') || 'Yedeği İndir'}
+                        </button>
+
+                        <div className="relative">
                             <input
-                                type="password"
-                                value={settings.nextcloudPassword || ''}
-                                onChange={e => handleChange('nextcloudPassword', e.target.value)}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
+                                type="file"
+                                accept=".json"
+                                onChange={handleRestore}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                disabled={status === 'syncing'}
                             />
-                        </div>
-
-                        <div className="pt-2 flex flex-wrap gap-4">
                             <button
-                                onClick={handleTestConnection}
-                                disabled={status === 'syncing' || status === 'saving'}
-                                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors"
+                                disabled={status === 'syncing'}
+                                className="flex items-center gap-2 px-6 py-3 bg-red-600/10 text-red-400 hover:bg-red-600/20 rounded-lg font-medium transition-colors border border-red-600/20"
                             >
-                                {t('testConnection')}
+                                <CloudDownload className="size-5" />
+                                {t('restoreBackup') || 'Yedeği Yükle'}
                             </button>
-
-                            <div className="ml-auto flex gap-3">
-                                <button
-                                    onClick={handleRestore}
-                                    disabled={status === 'syncing'}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-900/20 text-red-400 hover:bg-red-900/30 rounded-lg text-sm font-medium transition-colors border border-red-900/50"
-                                >
-                                    <CloudDownload className="size-4" /> {t('restore')}
-                                </button>
-                                <button
-                                    onClick={handleBackup}
-                                    disabled={status === 'syncing'}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 rounded-lg text-sm font-medium transition-colors border border-blue-900/50"
-                                >
-                                    <CloudUpload className="size-4" /> {t('backup')}
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </section>
