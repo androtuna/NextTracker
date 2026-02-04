@@ -2,8 +2,8 @@
 
 NextTracker is a modern, privacy-focused application for tracking movies and series. It uses a **Local-First** architecture, meaning your data stays on your device, with optional synchronization to your personal **Nextcloud** server.
 
-![NextTracker Preview](https://images.unsplash.com/photo-1593305841991-05c297ba4575?q=80&w=2800&auto=format&fit=crop) 
-*(Note: Screenshot placeholder)*
+![NextTracker Preview](public/screenshot.png) 
+
 
 ## 🚀 Features
 

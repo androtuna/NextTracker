@@ -27,4 +27,5 @@ export interface AppSettings {
     nextcloudUsername?: string;
     nextcloudPassword?: string; // App password
     lastSync?: number;
+    language?: 'tr' | 'en';
 }

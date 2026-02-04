@@ -4,28 +4,30 @@ import { trackingRepository } from '@/features/tracking/repository';
 import { cn } from '@/lib/utils';
 import { PlayCircle, CheckCircle, Clock, List } from 'lucide-react';
 import type { ItemStatus } from '@/types';
+import { useTranslation } from '@/lib/i18n';
 
 type Tab = 'all' | ItemStatus;
 
 export default function Dashboard() {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<Tab>('planned');
     const items = useLiveQuery(() => trackingRepository.getAllItems());
 
     const filteredItems = items?.filter(item => activeTab === 'all' || item.status === activeTab);
 
     const tabs: { id: Tab; label: string; icon: any }[] = [
-        { id: 'planned', label: 'Planlanan', icon: List },
-        { id: 'in-progress', label: 'İzleniyor', icon: PlayCircle },
-        { id: 'completed', label: 'Tamamlanan', icon: CheckCircle },
-        { id: 'all', label: 'Tümü', icon: Clock },
+        { id: 'planned', label: t('planned'), icon: List },
+        { id: 'in-progress', label: t('watching'), icon: PlayCircle },
+        { id: 'completed', label: t('completed'), icon: CheckCircle },
+        { id: 'all', label: t('all'), icon: Clock },
     ];
 
     return (
         <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">İzleme Listem</h1>
-                    <p className="text-gray-400 mt-2">Takip ettiğiniz içerikler burada görüntülenir.</p>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">{t('watchList')}</h1>
+                    <p className="text-gray-400 mt-2">{t('watchListDesc')}</p>
                 </div>
 
                 <div className="flex p-1 bg-zinc-900 rounded-lg border border-zinc-800 self-start">
@@ -54,7 +56,7 @@ export default function Dashboard() {
                             {item.image ? (
                                 <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                             ) : (
-                                <div className="flex items-center justify-center h-full text-gray-700">Görsel Yok</div>
+                                <div className="flex items-center justify-center h-full text-gray-700">{t('noImage')}</div>
                             )}
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4">
                                 <select
@@ -63,25 +65,25 @@ export default function Dashboard() {
                                     onClick={e => e.stopPropagation()}
                                     onChange={e => trackingRepository.updateItem(item.id, { status: e.target.value as ItemStatus })}
                                 >
-                                    <option value="planned">Planlanan</option>
-                                    <option value="in-progress">İzleniyor</option>
-                                    <option value="completed">Tamamlandı</option>
-                                    <option value="dropped">Bırakıldı</option>
+                                    <option value="planned">{t('planned')}</option>
+                                    <option value="in-progress">{t('watching')}</option>
+                                    <option value="completed">{t('completed')}</option>
+                                    <option value="dropped">{t('dropped')}</option>
                                 </select>
-                                <div className="mt-2 text-white font-medium text-sm">Detaylar</div>
+                                <div className="mt-2 text-white font-medium text-sm">{t('details')}</div>
                             </div>
                         </div>
                         <div className="p-3">
                             <h3 className="font-medium text-white truncate" title={item.title}>{item.title}</h3>
                             <p className="text-xs text-gray-500 capitalize flex items-center gap-1">
-                                {item.type === 'movie' ? 'Film' : 'Dizi'}
+                                {item.type === 'movie' ? t('movie') : t('series')}
                             </p>
                         </div>
                     </div>
                 ))}
                 {filteredItems?.length === 0 && (
                     <div className="col-span-full py-20 text-center text-gray-500 border-2 border-dashed border-zinc-800 rounded-2xl">
-                        {activeTab === 'all' ? 'Listeniz boş.' : 'Bu kategoride içerik yok.'}
+                        {activeTab === 'all' ? t('emptyList') : t('emptyCategory')}
                     </div>
                 )}
             </div>

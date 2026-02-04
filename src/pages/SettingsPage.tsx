@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe } from 'lucide-react';
 import { getSettings, saveSettings } from '@/db/db';
 import { syncService } from '@/features/sync/syncService';
 import type { AppSettings } from '@/types';
 import { webdavClient } from '@/features/sync/webdav';
+import { useTranslation } from '@/lib/i18n';
 
 export default function SettingsPage() {
+    const { t } = useTranslation();
     const [settings, setSettingsState] = useState<AppSettings>({});
     const [status, setStatus] = useState<'idle' | 'saving' | 'syncing' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
@@ -23,80 +25,107 @@ export default function SettingsPage() {
         try {
             await saveSettings(settings);
             setStatus('success');
-            setMessage('Ayarlar kaydedildi.');
+            setMessage(t('saved'));
             setTimeout(() => setStatus('idle'), 2000);
+
+            // Force reload to apply language change if any
+            // Ideally we should use context api but for now liveQuery handles reads, 
+            // but static UI parts might need re-render or reload.
+            // Since useTranslation reads from liveQuery, it should be reactive for components using it.
         } catch (e) {
             setStatus('error');
-            setMessage('Kaydedilemedi.');
+            setMessage(t('saveError'));
         }
     };
 
     const handleTestConnection = async () => {
         setStatus('syncing');
-        setMessage('Bağlantı test ediliyor...');
+        setMessage(t('testing'));
         const ok = await webdavClient.checkConnection();
         if (ok) {
             setStatus('success');
-            setMessage('Nextcloud bağlantısı başarılı!');
+            setMessage(t('testSuccess'));
         } else {
             setStatus('error');
-            setMessage('Bağlantı başarısız. Bilgileri kontrol edin.');
+            setMessage(t('testFail'));
         }
     };
 
     const handleBackup = async () => {
         setStatus('syncing');
-        setMessage('Yedekleniyor...');
+        setMessage(t('backingUp'));
         try {
             await syncService.backup();
             setStatus('success');
-            setMessage('Yedekleme başarılı!');
+            setMessage(t('backupSuccess'));
         } catch (e: any) {
             setStatus('error');
-            setMessage(`Hata: ${e.message}`);
+            setMessage(`${t('error')}: ${e.message}`);
         }
     };
 
     const handleRestore = async () => {
-        if (!confirm('Yerel veriler silinecek ve yedekten geri yüklenecek. Onaylıyor musunuz?')) return;
+        if (!confirm(t('restoreConfirm'))) return;
 
         setStatus('syncing');
-        setMessage('Geri yükleniyor...');
+        setMessage(t('restoring'));
         try {
             await syncService.restore();
             setStatus('success');
-            setMessage('Geri yükleme tamamlandı! Sayfa yenileniyor...');
+            setMessage(t('restoreSuccess'));
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             setStatus('error');
-            setMessage(`Hata: ${e.message}`);
+            setMessage(`${t('error')}: ${e.message}`);
         }
     };
 
     return (
         <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-10">
             <header>
-                <h1 className="text-3xl font-bold text-white tracking-tight">Ayarlar</h1>
-                <p className="text-gray-400 mt-2">Uygulama yapılandırması ve veri yönetimi.</p>
+                <h1 className="text-3xl font-bold text-white tracking-tight">{t('settingsTitle')}</h1>
+                <p className="text-gray-400 mt-2">{t('settingsDesc')}</p>
             </header>
 
             <div className="space-y-8">
+                {/* Language Configuration */}
+                <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+                    <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <Globe className="size-5 text-blue-500" />
+                        {t('language')}
+                    </h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => handleChange('language', 'tr')}
+                            className={`p-4 rounded-lg border text-center transition-all ${settings.language === 'tr' || !settings.language ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800'}`}
+                        >
+                            Türkçe
+                        </button>
+                        <button
+                            onClick={() => handleChange('language', 'en')}
+                            className={`p-4 rounded-lg border text-center transition-all ${settings.language === 'en' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800'}`}
+                        >
+                            English
+                        </button>
+                    </div>
+                </section>
+
                 {/* API Configuration */}
                 <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        API Yapılandırması
+                        {t('apiConfig')}
                     </h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">TMDB API Key (v3 Auth)</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">{t('tmdbApiKey')}</label>
                             <input
                                 type="password"
                                 value={settings.tmdbApiKey || ''}
                                 onChange={e => handleChange('tmdbApiKey', e.target.value)}
                                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                placeholder="TMDB API anahtarınızı girin"
+                                placeholder="TMDB API Key"
                             />
-                            <p className="text-xs text-gray-600 mt-2">Film verilerini çekmek için gereklidir in TheMovieDB.</p>
+                            <p className="text-xs text-gray-600 mt-2">{t('tmdbDesc')}</p>
                         </div>
                     </div>
                 </section>
@@ -104,12 +133,12 @@ export default function SettingsPage() {
                 {/* Sync Configuration */}
                 <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        Nextcloud Senkronizasyon
+                        {t('syncConfig')}
                     </h2>
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Sunucu URL</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">{t('serverUrl')}</label>
                                 <input
                                     type="text"
                                     value={settings.nextcloudUrl || ''}
@@ -117,10 +146,10 @@ export default function SettingsPage() {
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
                                     placeholder="https://cloud.example.com/remote.php/dav/files/user/"
                                 />
-                                <p className="text-xs text-gray-600 mt-1">WebDAV URL'nizi girin.</p>
+                                <p className="text-xs text-gray-600 mt-1">{t('serverUrlDesc')}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Kullanıcı Adı</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">{t('username')}</label>
                                 <input
                                     type="text"
                                     value={settings.nextcloudUsername || ''}
@@ -130,7 +159,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Şifre / App Password</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">{t('password')}</label>
                             <input
                                 type="password"
                                 value={settings.nextcloudPassword || ''}
@@ -145,7 +174,7 @@ export default function SettingsPage() {
                                 disabled={status === 'syncing' || status === 'saving'}
                                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors"
                             >
-                                Bağlantıyı Test Et
+                                {t('testConnection')}
                             </button>
 
                             <div className="ml-auto flex gap-3">
@@ -154,14 +183,14 @@ export default function SettingsPage() {
                                     disabled={status === 'syncing'}
                                     className="flex items-center gap-2 px-4 py-2 bg-red-900/20 text-red-400 hover:bg-red-900/30 rounded-lg text-sm font-medium transition-colors border border-red-900/50"
                                 >
-                                    <CloudDownload className="size-4" /> Geri Yükle
+                                    <CloudDownload className="size-4" /> {t('restore')}
                                 </button>
                                 <button
                                     onClick={handleBackup}
                                     disabled={status === 'syncing'}
                                     className="flex items-center gap-2 px-4 py-2 bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 rounded-lg text-sm font-medium transition-colors border border-blue-900/50"
                                 >
-                                    <CloudUpload className="size-4" /> Yedekle
+                                    <CloudUpload className="size-4" /> {t('backup')}
                                 </button>
                             </div>
                         </div>
@@ -181,7 +210,7 @@ export default function SettingsPage() {
                         disabled={status !== 'idle' && status !== 'success' && status !== 'error'}
                         className="flex items-center gap-2 px-8 py-3 bg-white text-black hover:bg-gray-200 rounded-full font-medium transition-colors shadow-lg shadow-white/10"
                     >
-                        <Save className="size-4" /> Kaydet
+                        <Save className="size-4" /> {t('save')}
                     </button>
                 </div>
             </div>
