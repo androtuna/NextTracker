@@ -50,8 +50,21 @@ export const tmdbClient = {
         return fetchTMDB('/search/multi', { query });
     },
 
-    getImageUrl(path: string) {
+    async getTrending(timeWindow: 'day' | 'week' = 'week'): Promise<TMDBSearchResponse> {
+        return fetchTMDB(`/trending/all/${timeWindow}`);
+    },
+
+    async getPopular(type: 'movie' | 'tv'): Promise<TMDBSearchResponse> {
+        return fetchTMDB(`/${type}/popular`);
+    },
+
+    async getTopRated(type: 'movie' | 'tv'): Promise<TMDBSearchResponse> {
+        return fetchTMDB(`/${type}/top_rated`);
+    },
+
+    getImageUrl(path: string, size: 'w500' | 'original' = 'w500') {
         if (!path) return '';
-        return `${IMAGE_BASE_URL}${path}`;
+        const baseUrl = size === 'original' ? 'https://image.tmdb.org/t/p/original' : IMAGE_BASE_URL;
+        return `${baseUrl}${path}`;
     }
 };
