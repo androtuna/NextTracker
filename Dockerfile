@@ -1,9 +1,9 @@
-# Stage 1: Build Frontend
+# Stage 1: Build
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Install dependencies (including devDependencies for build)
+# Install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -11,24 +11,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve with Node.js
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Copy package files for production install (express, etc)
-COPY package.json package-lock.json ./
-
-# Install ONLY production dependencies
-RUN npm ci --only=production
+# Stage 2: Serve
+FROM nginx:alpine
 
 # Copy built assets from builder stage
-COPY --from=build /app/dist /app/dist
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy server code
-COPY server.js /app/server.js
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 3000
+EXPOSE 80
 
-# Start Node server
-CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]
