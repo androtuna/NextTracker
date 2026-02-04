@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getSettings, db } from '@/db/db';
+import { db } from '@/db/db';
 
 type Language = 'tr' | 'en';
 
