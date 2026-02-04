@@ -1,6 +1,6 @@
-import { getSettings } from '@/db/db';
 
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+const TMDB_BASE_URL = '/api/tmdb';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 export interface TMDBSearchResult {
@@ -29,14 +29,10 @@ export interface TMDBSearchResponse {
 // Let's assume standard v3 key (string params) for simplicity as it's easier for users to find "API Key" than "Read Access Token".
 
 async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) {
-    const settings = await getSettings();
-    if (!settings.tmdbApiKey) {
-        throw new Error('TMDB API Key is missing');
-    }
+    // API Key is handled by the backend server
 
-    const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
-    url.searchParams.append('api_key', settings.tmdbApiKey);
-    url.searchParams.append('language', 'tr-TR'); // Default to Turkish as per request context
+    const url = new URL(`${window.location.origin}${TMDB_BASE_URL}${endpoint}`);
+    // url.searchParams.append('language', 'tr-TR'); // Default set in server or can be added here
 
     Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);
