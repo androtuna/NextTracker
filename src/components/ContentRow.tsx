@@ -3,7 +3,8 @@ import { db } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Check } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
-import { useCallback } from 'react';
+import { trackingRepository } from '@/features/tracking/repository';
+import { mapTmdbToItem } from '@/features/search/utils';
 
 interface ContentRowProps {
     title: string;
@@ -11,7 +12,7 @@ interface ContentRowProps {
 }
 
 export function ContentRow({ title, items }: ContentRowProps) {
-    const [emblaRef, emblaApi] = useEmblaCarousel({
+    const [emblaRef] = useEmblaCarousel({
         loop: false,
         align: 'start',
         dragFree: true,
@@ -41,22 +42,15 @@ function ContentCard({ item }: { item: TMDBSearchResult }) {
 
     // Check library status
     const existingItem = useLiveQuery(
-        () => db.items.where({ externalId: item.id }).first(),
+        () => db.items.where({ externalId: item.id.toString() }).first(),
         [item.id]
     );
 
     const handleAdd = async () => {
         if (existingItem) return;
         try {
-            await db.items.add({
-                type: item.media_type === 'movie' ? 'movie' : 'series',
-                status: 'planned',
-                title: title || 'Unknown',
-                externalId: item.id,
-                posterPath: item.poster_path,
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            });
+            const newItem = mapTmdbToItem(item);
+            await trackingRepository.addItem(newItem);
         } catch (error) {
             console.error('Failed to add item:', error);
         }
