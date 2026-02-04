@@ -41,13 +41,19 @@ export default function SettingsPage() {
     const handleTestConnection = async () => {
         setStatus('syncing');
         setMessage(t('testing'));
-        const ok = await webdavClient.checkConnection();
-        if (ok) {
-            setStatus('success');
-            setMessage(t('testSuccess'));
-        } else {
+        try {
+            const ok = await webdavClient.checkConnection();
+            if (ok === true) {
+                setStatus('success');
+                setMessage(t('testSuccess'));
+            } else {
+                // If it returns a string, it's an error message
+                setStatus('error');
+                setMessage(typeof ok === 'string' ? ok : t('testFail'));
+            }
+        } catch (e: any) {
             setStatus('error');
-            setMessage(t('testFail'));
+            setMessage(e.message || t('testFail'));
         }
     };
 

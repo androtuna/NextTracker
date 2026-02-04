@@ -16,14 +16,17 @@ async function getClient() {
 const BACKUP_PATH = '/NextTracker/backup.json';
 
 export const webdavClient = {
-    async checkConnection() {
+    async checkConnection(): Promise<true | string> {
         try {
             const client = await getClient();
             await client.getDirectoryContents('/');
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error('WebDAV Connection Error:', error);
-            return false;
+            if (error.response?.status === 401) return 'Hata: Kullanıcı adı veya şifre yanlış (401).';
+            if (error.response?.status === 404) return 'Hata: URL bulunamadı (404). URL\'yi kontrol edin.';
+            if (error.message === 'Failed to fetch') return 'Hata: CORS engeli veya sunucuya ulaşılamıyor. (Tarayıcı Nextcloud\'a doğrudan erişemiyor olabilir).';
+            return `Hata: ${error.message}`;
         }
     },
 
