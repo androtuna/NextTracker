@@ -9,9 +9,10 @@ import { mapTmdbToItem } from '@/features/search/utils';
 
 interface HeroSectionProps {
     item: TMDBSearchResult;
+    onDetails?: (item: TMDBSearchResult) => void;
 }
 
-export function HeroSection({ item }: HeroSectionProps) {
+export function HeroSection({ item, onDetails }: HeroSectionProps) {
     const { t } = useTranslation();
     const backdropUrl = tmdbClient.getImageUrl(item.backdrop_path || item.poster_path || '', 'original');
     const title = item.title || item.name;
@@ -85,7 +86,10 @@ export function HeroSection({ item }: HeroSectionProps) {
                         </button>
                     )}
 
-                    <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white hover:bg-white/20 rounded-lg font-medium backdrop-blur-sm transition-all border border-white/10">
+                    <button
+                        onClick={() => onDetails?.(item)}
+                        className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white hover:bg-white/20 rounded-lg font-medium backdrop-blur-sm transition-all border border-white/10"
+                    >
                         <Info className="size-5" />
                         {t('details') || 'Detaylar'}
                     </button>

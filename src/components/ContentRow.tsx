@@ -9,9 +9,10 @@ import { mapTmdbToItem } from '@/features/search/utils';
 interface ContentRowProps {
     title: string;
     items: TMDBSearchResult[];
+    onSelect?: (item: TMDBSearchResult) => void;
 }
 
-export function ContentRow({ title, items }: ContentRowProps) {
+export function ContentRow({ title, items, onSelect }: ContentRowProps) {
     const [emblaRef] = useEmblaCarousel({
         loop: false,
         align: 'start',
@@ -36,7 +37,7 @@ export function ContentRow({ title, items }: ContentRowProps) {
     );
 }
 
-function ContentCard({ item }: { item: TMDBSearchResult }) {
+function ContentCard({ item, onSelect }: { item: TMDBSearchResult; onSelect?: (item: TMDBSearchResult) => void }) {
     const posterUrl = tmdbClient.getImageUrl(item.poster_path || '');
     const title = item.title || item.name;
 
@@ -57,7 +58,10 @@ function ContentCard({ item }: { item: TMDBSearchResult }) {
     };
 
     return (
-        <div className="flex-[0_0_160px] md:flex-[0_0_200px] relative group cursor-pointer">
+        <div
+            className="flex-[0_0_160px] md:flex-[0_0_200px] relative group cursor-pointer"
+            onClick={() => onSelect?.(item)}
+        >
             <div className="aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:border-zinc-700">
                 {posterUrl ? (
                     <img

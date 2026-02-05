@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Plus, Check } from 'lucide-react';
-import { tmdbClient, type TMDBSearchResult } from '@/lib/tmdb';
+import { Search, Loader2, Plus, Check, Info } from 'lucide-react';
+import { tmdbClient, type TMDBSearchResult, type TMDBDetail } from '@/lib/tmdb';
 import { mapTmdbToItem } from '@/features/search/utils';
 import { trackingRepository } from '@/features/tracking/repository';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '@/lib/i18n';
 import { HeroSection } from '@/components/HeroSection';
 import { ContentRow } from '@/components/ContentRow';
+import { DetailModal } from '@/components/DetailModal';
 
 export default function SearchPage() {
     const { t } = useTranslation();
@@ -21,6 +22,8 @@ export default function SearchPage() {
     const [popularMovies, setPopularMovies] = useState<TMDBSearchResult[]>([]);
     const [popularTV, setPopularTV] = useState<TMDBSearchResult[]>([]);
     const [topRated, setTopRated] = useState<TMDBSearchResult[]>([]);
+    const [selected, setSelected] = useState<TMDBDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     useEffect(() => {
         // Fetch discovery data on mount
@@ -78,8 +81,22 @@ export default function SearchPage() {
     // Hero Item (First trending item)
     const heroItem = trending.length > 0 ? trending[0] : null;
 
+    const openDetails = async (item: TMDBSearchResult) => {
+        const guessedType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
+        if (guessedType === 'person') return;
+        try {
+            setDetailLoading(true);
+            const detail = await tmdbClient.getDetails(guessedType as 'movie' | 'tv', item.id);
+            setSelected(detail);
+        } catch (err) {
+            console.error('Detay getirilemedi', err);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
     return (
-        <div className="pb-20">
+        <div className="pb-20 bg-gradient-to-b from-zinc-950 via-zinc-950 to-black min-h-screen">
             {/* Search Header - Sticky */}
             <div className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 p-4 md:p-6 transition-all">
                 <div className="max-w-5xl mx-auto flex items-center gap-4">
@@ -106,8 +123,13 @@ export default function SearchPage() {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6 space-y-6">
                 {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
+                {detailLoading && (
+                    <div className="text-center text-sm text-blue-300 bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-full inline-flex items-center gap-2 mx-auto">
+                        <Loader2 className="size-4 animate-spin" /> Detaylar yükleniyor...
+                    </div>
+                )}
 
                 {query.trim().length > 0 ? (
                     // Search Results
@@ -117,10 +139,18 @@ export default function SearchPage() {
                             const imageUrl = tmdbClient.getImageUrl(result.poster_path || '');
 
                             return (
-                                <div key={result.id} className="relative group bg-zinc-900 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all">
+                                <div
+                                    key={result.id}
+                                    className="relative group bg-zinc-900 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all"
+                                >
                                     <div className="aspect-[2/3] bg-zinc-800 relative">
                                         {imageUrl ? (
-                                            <img src={imageUrl} alt={result.title || result.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <img
+                                                src={imageUrl}
+                                                alt={result.title || result.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                onClick={() => openDetails(result)}
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-gray-700">{t('noImage')}</div>
                                         )}
@@ -129,18 +159,32 @@ export default function SearchPage() {
                                             <p className="text-white font-medium line-clamp-2">{result.title || result.name}</p>
                                             <p className="text-xs text-gray-400">{result.release_date?.slice(0, 4) || result.first_air_date?.slice(0, 4)}</p>
 
-                                            <button
-                                                onClick={() => !isAdded && handleAdd(result)}
-                                                disabled={isAdded}
-                                                className={cn(
-                                                    "mt-2 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                                                    isAdded
-                                                        ? "bg-green-500/20 text-green-400 cursor-default"
-                                                        : "bg-white text-black hover:bg-gray-200"
-                                                )}
-                                            >
-                                                {isAdded ? <><Check className="size-4" /> {t('added')}</> : <><Plus className="size-4" /> {t('add')}</>}
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openDetails(result);
+                                                    }}
+                                                    className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/15 text-white border border-white/10 hover:bg-white/25 transition-colors text-sm"
+                                                >
+                                                    <Info className="size-4" /> Detay
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        !isAdded && handleAdd(result);
+                                                    }}
+                                                    disabled={isAdded}
+                                                    className={cn(
+                                                        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                                                        isAdded
+                                                            ? "bg-green-500/20 text-green-400 cursor-default"
+                                                            : "bg-white text-black hover:bg-gray-200"
+                                                    )}
+                                                >
+                                                    {isAdded ? <><Check className="size-4" /> {t('added')}</> : <><Plus className="size-4" /> {t('add')}</>}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -155,17 +199,19 @@ export default function SearchPage() {
                 ) : (
                     // Discovery / Home UI
                     <div className="animate-in fade-in duration-700">
-                        {heroItem && <HeroSection item={heroItem} />}
+                        {heroItem && <HeroSection item={heroItem} onDetails={openDetails} />}
 
-                        <div className="-mt-20 md:-mt-32 relative z-20 space-y-8 pl-4">
-                            <ContentRow title="Haftanın Trendleri" items={trending.slice(1)} />
-                            <ContentRow title="Popüler Filmler" items={popularMovies} />
-                            <ContentRow title="Popüler Diziler" items={popularTV} />
-                            <ContentRow title="IMDB Top 250 (Filmler)" items={topRated} />
+                        <div className="-mt-12 md:-mt-20 relative z-20 space-y-10 pl-1 md:pl-4 pb-6">
+                            <ContentRow title="Haftanın Trendleri" items={trending.slice(1)} onSelect={openDetails} />
+                            <ContentRow title="Popüler Filmler" items={popularMovies} onSelect={openDetails} />
+                            <ContentRow title="Popüler Diziler" items={popularTV} onSelect={openDetails} />
+                            <ContentRow title="IMDB Top 250 (Filmler)" items={topRated} onSelect={openDetails} />
                         </div>
                     </div>
                 )}
             </div>
+
+            <DetailModal item={selected} open={!!selected && !detailLoading} onClose={() => setSelected(null)} />
         </div>
     );
 }

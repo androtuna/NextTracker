@@ -17,6 +17,38 @@ export interface TMDBSearchResult {
     vote_average: number;
 }
 
+export interface TMDBDetail extends TMDBSearchResult {
+    genres?: { id: number; name: string }[];
+    runtime?: number;
+    episode_run_time?: number[];
+    number_of_seasons?: number;
+    status?: string;
+    homepage?: string;
+    tagline?: string;
+    videos?: {
+        results: Array<{
+            key: string;
+            name: string;
+            site: string;
+            type: string;
+            official?: boolean;
+        }>;
+    };
+    credits?: {
+        cast: Array<{
+            id: number;
+            name: string;
+            character?: string;
+            profile_path?: string;
+        }>;
+        crew: Array<{
+            id: number;
+            name: string;
+            job?: string;
+        }>;
+    };
+}
+
 export interface TMDBSearchResponse {
     page: number;
     results: TMDBSearchResult[];
@@ -60,6 +92,12 @@ export const tmdbClient = {
 
     async getTopRated(type: 'movie' | 'tv'): Promise<TMDBSearchResponse> {
         return fetchTMDB(`/${type}/top_rated`);
+    },
+
+    async getDetails(type: 'movie' | 'tv', id: number): Promise<TMDBDetail> {
+        // Append videos and credits for richer detail view
+        const detail = await fetchTMDB(`/${type}/${id}`, { append_to_response: 'videos,credits' });
+        return { ...detail, media_type: type } as TMDBDetail;
     },
 
     getImageUrl(path: string, size: 'w500' | 'original' = 'w500') {
