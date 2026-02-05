@@ -29,7 +29,7 @@ export function ContentRow({ title, items, onSelect }: ContentRowProps) {
             <div className="overflow-hidden" ref={emblaRef}>
                 <div className="flex gap-4 touch-pan-y">
                     {items.map(item => (
-                        <ContentCard key={item.id} item={item} />
+                        <ContentCard key={item.id} item={item} onSelect={onSelect} />
                     ))}
                 </div>
             </div>
