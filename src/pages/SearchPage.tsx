@@ -172,7 +172,7 @@ export default function SearchPage() {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        !isAdded && handleAdd(result);
+                                                        if (!isAdded) handleAdd(result);
                                                     }}
                                                     disabled={isAdded}
                                                     className={cn(
