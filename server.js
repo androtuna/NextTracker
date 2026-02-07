@@ -55,42 +55,50 @@ app.use('/api/tmdb', createProxyMiddleware({
 
 // Generic Proxy for WebDAV / External APIs to avoid CORS issues
 app.use('/api/proxy', (req, res, next) => {
-    const targetUrl = req.headers['x-target-url'];
-    if (!targetUrl) {
+    const targetHeader = req.headers['x-target-url'];
+    if (!targetHeader) {
         return res.status(400).json({ error: 'Missing x-target-url header' });
     }
 
-    // Determine the target base URL
     try {
-        const url = new URL(targetUrl);
-        const target = url.origin;
-        const path = url.pathname + url.search;
+        const targetUrl = new URL(targetHeader);
+        const origin = targetUrl.origin;
+
+        // Debug log
+        console.log(`[Proxy] ${req.method} ${req.url} -> ${targetHeader}`);
 
         createProxyMiddleware({
-            target: target,
+            target: origin,
             changeOrigin: true,
-            pathRewrite: (p, r) => {
-                const targetUrl = new URL(r.headers['x-target-url']);
-                const proxyPath = '/api/proxy';
-                const relativePath = p.startsWith(proxyPath) ? p.slice(proxyPath.length) : p;
-                // Ensure target pathname ends without slash if relative starts with one, or vice-versa
-                const base = targetUrl.pathname.endsWith('/') ? targetUrl.pathname.slice(0, -1) : targetUrl.pathname;
-                const path = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
-                return base + path;
+            secure: false, // In case of self-signed certs common in home labs
+            pathRewrite: (path, r) => {
+                const target = new URL(r.headers['x-target-url']);
+                const proxyBase = '/api/proxy';
+                const subPath = path.startsWith(proxyBase) ? path.slice(proxyBase.length) : path;
+
+                // Construct the final path on the target server
+                let basePath = target.pathname;
+                if (basePath.endsWith('/') && subPath.startsWith('/')) {
+                    basePath = basePath.slice(0, -1);
+                } else if (!basePath.endsWith('/') && !subPath.startsWith('/')) {
+                    basePath = basePath + '/';
+                }
+
+                return basePath + subPath;
             },
             onProxyReq: (proxyReq, req, res) => {
-                // Forward original headers but remove origin/referer to avoid security blocks
-                delete req.headers['origin'];
-                delete req.headers['referer'];
-                delete req.headers['x-target-url']; // don't send this to target
+                // Ensure headers are clean
+                proxyReq.setHeader('Origin', origin);
+                proxyReq.setHeader('Referer', origin);
+                // Important for WebDAV: Ensure Content-Length is handled by the proxy
             },
             onError: (err, req, res) => {
-                console.error('Proxy Error:', err);
-                res.status(500).json({ error: 'Proxy Error', details: err.message });
+                console.error('[Proxy Error]:', err);
+                res.status(500).json({ error: 'Proxy Error', message: err.message });
             }
         })(req, res, next);
     } catch (e) {
-        res.status(400).json({ error: 'Invalid x-target-url' });
+        res.status(400).json({ error: 'Invalid URL in x-target-url' });
     }
 });
 

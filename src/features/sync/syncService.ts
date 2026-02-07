@@ -56,6 +56,12 @@ export const syncService = {
             throw new Error('Nextcloud settings are missing');
         }
 
+        // Normalize URL: Must end with /
+        let targetUrl = settings.nextcloudUrl.trim();
+        if (!targetUrl.endsWith('/')) {
+            targetUrl += '/';
+        }
+
         // Use local proxy to avoid CORS issues
         const proxyUrl = '/api/proxy';
 
@@ -63,45 +69,66 @@ export const syncService = {
             username: settings.nextcloudUsername,
             password: settings.nextcloudPassword,
             headers: {
-                'x-target-url': settings.nextcloudUrl
+                'x-target-url': targetUrl
             }
         });
     },
 
     async pushToNextcloud(settings: AppSettings): Promise<void> {
-        const client = await this.getWebDAVClient(settings);
-        const items = await db.items.toArray();
-        const data = JSON.stringify(items, null, 2);
+        try {
+            const client = await this.getWebDAVClient(settings);
+            const items = await db.items.toArray();
+            const data = JSON.stringify(items, null, 2);
 
-        await client.putFileContents(BACKUP_FILENAME, data);
+            await client.putFileContents(BACKUP_FILENAME, data);
 
-        await db.settings.update(1, { lastSync: Date.now() });
+            await db.settings.update(1, { lastSync: Date.now() });
+        } catch (e: any) {
+            if (e.status === 405) {
+                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir. Lütfen sonuna / eklediğinizden ve doğru Nextcloud WebDAV adresini girdiğinizden (remote.php/dav/...) emin olun.');
+            }
+            throw e;
+        }
     },
 
     async pullFromNextcloud(settings: AppSettings): Promise<number> {
-        const client = await this.getWebDAVClient(settings);
+        try {
+            const client = await this.getWebDAVClient(settings);
 
-        if (!(await client.exists(BACKUP_FILENAME))) {
-            throw new Error('No backup found on Nextcloud');
+            if (!(await client.exists(BACKUP_FILENAME))) {
+                throw new Error('No backup found on Nextcloud');
+            }
+
+            const data = await client.getFileContents(BACKUP_FILENAME, { format: 'text' });
+            const items: TrackableItem[] = JSON.parse(data as string);
+
+            if (!Array.isArray(items)) throw new Error('Invalid data on server');
+
+            await db.transaction('rw', db.items, async () => {
+                await db.items.clear();
+                await db.items.bulkAdd(items);
+            });
+
+            await db.settings.update(1, { lastSync: Date.now() });
+            return items.length;
+        } catch (e: any) {
+            if (e.status === 405) {
+                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir.');
+            }
+            throw e;
         }
-
-        const data = await client.getFileContents(BACKUP_FILENAME, { format: 'text' });
-        const items: TrackableItem[] = JSON.parse(data as string);
-
-        if (!Array.isArray(items)) throw new Error('Invalid data on server');
-
-        await db.transaction('rw', db.items, async () => {
-            await db.items.clear();
-            await db.items.bulkAdd(items);
-        });
-
-        await db.settings.update(1, { lastSync: Date.now() });
-        return items.length;
     },
 
     async testConnection(settings: AppSettings): Promise<boolean> {
-        const client = await this.getWebDAVClient(settings);
-        await client.getDirectoryContents('/');
-        return true;
+        try {
+            const client = await this.getWebDAVClient(settings);
+            await client.getDirectoryContents('/');
+            return true;
+        } catch (e: any) {
+            if (e.status === 405) {
+                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir. Lütfen URL sonunun / ile bittiğini kontrol edin.');
+            }
+            throw e;
+        }
     }
 };
