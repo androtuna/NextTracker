@@ -62,6 +62,11 @@ const translations = {
         restoreBackup: 'Yedeği Yükle',
         error: 'Hata',
         language: 'Dil / Language',
+        sync: 'Senkronizasyon',
+        cloudSyncDesc: 'Verilerinizi bulutta saklayın. Tarayıcıyı temizleseniz de verileriniz güvende kalır.',
+        pushToCloud: 'Buluta Gönder',
+        pullFromCloud: 'Buluttan Getir',
+        lastSync: 'Son Senkronizasyon',
     },
     en: {
         dashboard: 'Dashboard',
@@ -121,6 +126,11 @@ const translations = {
         restoreBackup: 'Restore Backup',
         error: 'Error',
         language: 'Language',
+        sync: 'Sync',
+        cloudSyncDesc: 'Store your data in the cloud. Your data remains safe even if you clear the browser.',
+        pushToCloud: 'Push to Cloud',
+        pullFromCloud: 'Pull from Cloud',
+        lastSync: 'Last Sync',
     }
 };
 
