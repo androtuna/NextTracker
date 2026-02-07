@@ -38,10 +38,14 @@ export default function SettingsPage() {
         }
     };
     const handleCloudPush = async () => {
+        if (!confirm(t('pushConfirm') || 'Yerel verileriniz buluta yüklenecek (dosya üzerine yazılacak). Onaylıyor musunuz?')) return;
         setStatus('syncing');
         setMessage(t('backingUp'));
         try {
-            await syncService.pushToNextcloud();
+            // Auto save settings first to ensure the cloud settings are persistent
+            await saveSettings(settings);
+
+            await syncService.pushToNextcloud(settings);
             const s = await getSettings();
             setSettingsState(s);
             setStatus('success');
@@ -57,7 +61,7 @@ export default function SettingsPage() {
         setStatus('syncing');
         setMessage(t('restoring'));
         try {
-            await syncService.pullFromNextcloud();
+            await syncService.pullFromNextcloud(settings);
             const s = await getSettings();
             setSettingsState(s);
             setStatus('success');
@@ -73,7 +77,10 @@ export default function SettingsPage() {
         setStatus('syncing');
         setMessage(t('testing'));
         try {
-            await syncService.testConnection();
+            // Auto save settings first
+            await saveSettings(settings);
+
+            await syncService.testConnection(settings);
             setStatus('success');
             setMessage(t('testSuccess'));
             setTimeout(() => setStatus('idle'), 3000);
@@ -241,6 +248,16 @@ export default function SettingsPage() {
                                 {t('pullFromCloud') || 'Buluttan Getir'}
                             </button>
                         </div>
+
+                        {/* Inline status for sync */}
+                        {(status === 'syncing' || (status !== 'saving' && status !== 'idle')) && message && (
+                            <div className={`text-sm mt-2 flex items-center gap-2 ${status === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
+                                {status === 'syncing' && <RefreshCw className="size-4 animate-spin" />}
+                                {status === 'success' && <CheckCircle className="size-4 text-green-400" />}
+                                {status === 'error' && <AlertCircle className="size-4" />}
+                                {message}
+                            </div>
+                        )}
 
                         {settings.lastSync && (
                             <p className="text-xs text-gray-500 mt-2">

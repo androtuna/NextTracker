@@ -67,6 +67,7 @@ const translations = {
         pushToCloud: 'Buluta Gönder',
         pullFromCloud: 'Buluttan Getir',
         lastSync: 'Son Senkronizasyon',
+        pushConfirm: 'Yerel verileriniz buluta yüklenecek (dosya üzerine yazılacak). Onaylıyor musunuz?',
     },
     en: {
         dashboard: 'Dashboard',
@@ -131,6 +132,7 @@ const translations = {
         pushToCloud: 'Push to Cloud',
         pullFromCloud: 'Pull from Cloud',
         lastSync: 'Last Sync',
+        pushConfirm: 'Your local data will be uploaded to the cloud (overwriting the file). Are you sure?',
     }
 };
 

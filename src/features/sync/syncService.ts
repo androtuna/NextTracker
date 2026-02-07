@@ -1,5 +1,5 @@
-import { db, getSettings } from '@/db/db';
-import type { TrackableItem } from '@/types';
+import { db } from '@/db/db';
+import type { TrackableItem, AppSettings } from '@/types';
 import { createClient } from 'webdav';
 
 const BACKUP_FILENAME = 'nexttracker_backup.json';
@@ -51,8 +51,7 @@ export const syncService = {
         });
     },
 
-    async getWebDAVClient() {
-        const settings = await getSettings();
+    async getWebDAVClient(settings: AppSettings) {
         if (!settings.nextcloudUrl || !settings.nextcloudUsername || !settings.nextcloudPassword) {
             throw new Error('Nextcloud settings are missing');
         }
@@ -63,8 +62,8 @@ export const syncService = {
         });
     },
 
-    async pushToNextcloud(): Promise<void> {
-        const client = await this.getWebDAVClient();
+    async pushToNextcloud(settings: AppSettings): Promise<void> {
+        const client = await this.getWebDAVClient(settings);
         const items = await db.items.toArray();
         const data = JSON.stringify(items, null, 2);
 
@@ -73,8 +72,8 @@ export const syncService = {
         await db.settings.update(1, { lastSync: Date.now() });
     },
 
-    async pullFromNextcloud(): Promise<number> {
-        const client = await this.getWebDAVClient();
+    async pullFromNextcloud(settings: AppSettings): Promise<number> {
+        const client = await this.getWebDAVClient(settings);
 
         if (!(await client.exists(BACKUP_FILENAME))) {
             throw new Error('No backup found on Nextcloud');
@@ -94,8 +93,8 @@ export const syncService = {
         return items.length;
     },
 
-    async testConnection(): Promise<boolean> {
-        const client = await this.getWebDAVClient();
+    async testConnection(settings: AppSettings): Promise<boolean> {
+        const client = await this.getWebDAVClient(settings);
         await client.getDirectoryContents('/');
         return true;
     }
