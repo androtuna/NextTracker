@@ -56,9 +56,15 @@ export const syncService = {
             throw new Error('Nextcloud settings are missing');
         }
 
-        return createClient(settings.nextcloudUrl, {
+        // Use local proxy to avoid CORS issues
+        const proxyUrl = '/api/proxy';
+
+        return createClient(proxyUrl, {
             username: settings.nextcloudUsername,
             password: settings.nextcloudPassword,
+            headers: {
+                'x-target-url': settings.nextcloudUrl
+            }
         });
     },
 

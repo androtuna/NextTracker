@@ -53,6 +53,47 @@ app.use('/api/tmdb', createProxyMiddleware({
     }
 }));
 
+// Generic Proxy for WebDAV / External APIs to avoid CORS issues
+app.use('/api/proxy', (req, res, next) => {
+    const targetUrl = req.headers['x-target-url'];
+    if (!targetUrl) {
+        return res.status(400).json({ error: 'Missing x-target-url header' });
+    }
+
+    // Determine the target base URL
+    try {
+        const url = new URL(targetUrl);
+        const target = url.origin;
+        const path = url.pathname + url.search;
+
+        createProxyMiddleware({
+            target: target,
+            changeOrigin: true,
+            pathRewrite: (p, r) => {
+                const targetUrl = new URL(r.headers['x-target-url']);
+                const proxyPath = '/api/proxy';
+                const relativePath = p.startsWith(proxyPath) ? p.slice(proxyPath.length) : p;
+                // Ensure target pathname ends without slash if relative starts with one, or vice-versa
+                const base = targetUrl.pathname.endsWith('/') ? targetUrl.pathname.slice(0, -1) : targetUrl.pathname;
+                const path = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
+                return base + path;
+            },
+            onProxyReq: (proxyReq, req, res) => {
+                // Forward original headers but remove origin/referer to avoid security blocks
+                delete req.headers['origin'];
+                delete req.headers['referer'];
+                delete req.headers['x-target-url']; // don't send this to target
+            },
+            onError: (err, req, res) => {
+                console.error('Proxy Error:', err);
+                res.status(500).json({ error: 'Proxy Error', details: err.message });
+            }
+        })(req, res, next);
+    } catch (e) {
+        res.status(400).json({ error: 'Invalid x-target-url' });
+    }
+});
+
 // Serve static files from the React build directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
@@ -64,4 +105,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`Proxy endpoint: http://localhost:${PORT}/api/tmdb`);
+    console.log(`CORS Proxy: http://localhost:${PORT}/api/proxy`);
 });
