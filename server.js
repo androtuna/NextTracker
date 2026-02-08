@@ -60,32 +60,36 @@ app.use('/api/tmdb', createProxyMiddleware({
     target: 'https://api.themoviedb.org/3',
     changeOrigin: true,
     pathRewrite: {
-        '^/api/tmdb': '', // strip /api/tmdb from the path
+        '^/api/tmdb': '',
     },
     onProxyReq: (proxyReq, req, res) => {
-        const apiKey = process.env.TMDB_API_KEY;
+        // Fallback for different env variable naming or potential issues
+        const apiKey = (process.env.TMDB_API_KEY || '').trim();
 
         if (!apiKey) {
-            console.error('[TMDB Proxy] TMDB_API_KEY is missing!');
+            console.error('[TMDB Proxy Error] TMDB_API_KEY is missing or empty in environment!');
             return;
         }
 
-        // Parse query string
         const urlObj = new URL(proxyReq.path, 'https://api.themoviedb.org');
         const params = new URLSearchParams(urlObj.search);
 
-        // Always inject server-side API Key
         params.set('api_key', apiKey);
         params.set('language', 'tr-TR');
 
-        // Reconstruct path
         proxyReq.path = urlObj.pathname + '?' + params.toString();
 
-        console.log(`[TMDB Proxy] ${req.method} ${proxyReq.path.replace(apiKey, 'REDACTED')}`);
+        // Detailed logging for debugging in Coolify logs
+        console.log(`[TMDB Proxy] ${req.method} ${urlObj.pathname} -> Injected keys, sending to TMDB...`);
+    },
+    onProxyRes: (proxyRes, req, res) => {
+        if (proxyRes.statusCode >= 400) {
+            console.error(`[TMDB Proxy Response Error] Status: ${proxyRes.statusCode} for ${req.url}`);
+        }
     },
     onError: (err, req, res) => {
-        console.error('TMDB Proxy Error:', err);
-        res.status(500).json({ error: 'Proxy Error', details: err.message });
+        console.error('[TMDB Proxy Critical Error]:', err);
+        res.status(500).json({ status: 'error', message: 'TMDB Proxy failed', details: err.message });
     }
 }));
 

@@ -67,7 +67,8 @@ async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) 
 
     const res = await fetch(url.toString());
     if (!res.ok) {
-        throw new Error(`TMDB Error: ${res.statusText}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `TMDB Error (${res.status}): ${res.statusText}`);
     }
     return res.json();
 }
