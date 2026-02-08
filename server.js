@@ -13,6 +13,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Global Request Logger
+app.use((req, res, next) => {
+    console.log(`[Incoming Request] ${req.method} ${req.url}`);
+    next();
+});
+
 // Security: Enable CORS with WebDAV headers allowed
 app.use(cors({
     origin: '*',

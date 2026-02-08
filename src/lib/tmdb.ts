@@ -58,8 +58,8 @@ async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) 
     // Ensure endpoint starts with /
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-    // We use the local proxy which securely handles the API Key and language
-    const url = new URL(`${window.location.origin}/api/tmdb${cleanEndpoint}`);
+    // We use a relative path to the local proxy which securely handles the API Key
+    const url = new URL(`/api/tmdb${cleanEndpoint}`, window.location.origin);
 
     Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);
