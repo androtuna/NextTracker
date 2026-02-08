@@ -81,16 +81,16 @@ app.use('/api/proxy', (req, res, next) => {
             secure: false, // For self-signed Nextcloud certs
             xfwd: true,    // Preserve forwarded headers
             pathRewrite: (path, r) => {
-                const target = new URL(r.headers['x-target-url']);
-                // Ensure base path doesn't have double slashes
-                const base = target.pathname.endsWith('/') ? target.pathname.slice(0, -1) : target.pathname;
+                const tHeader = r.headers['x-target-url'];
+                const target = new URL(tHeader);
+                let base = target.pathname;
+                if (base.endsWith('/')) base = base.slice(0, -1);
 
-                // Extract everything after /api/proxy
-                const subMatch = path.match(/^\/api\/proxy(.*)/);
-                const sub = subMatch ? subMatch[1] : '';
+                const sub = path.replace('/api/proxy', '');
                 const cleanSub = sub.startsWith('/') ? sub : '/' + sub;
 
                 const finalPath = base + (cleanSub === '/' ? '' : cleanSub);
+                console.log(`[Proxy] ${req.method} ${path} -> ${finalPath}`);
                 return finalPath;
             },
             onProxyReq: (proxyReq, req, res) => {
