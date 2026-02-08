@@ -64,10 +64,11 @@ app.use('/api/tmdb', createProxyMiddleware({
     },
     onProxyReq: (proxyReq, req, res) => {
         // Fallback for different env variable naming or potential issues
+        // In production, process.env is usually populated by the host (Coolify)
         const apiKey = (process.env.TMDB_API_KEY || '').trim();
 
         if (!apiKey) {
-            console.error('[TMDB Proxy Error] TMDB_API_KEY is missing or empty in environment!');
+            console.error('[TMDB Proxy Error] TMDB_API_KEY IS MISSING IN PROCESS.ENV');
             return;
         }
 
@@ -79,8 +80,12 @@ app.use('/api/tmdb', createProxyMiddleware({
 
         proxyReq.path = urlObj.pathname + '?' + params.toString();
 
-        // Detailed logging for debugging in Coolify logs
-        console.log(`[TMDB Proxy] ${req.method} ${urlObj.pathname} -> Injected keys, sending to TMDB...`);
+        // Security-conscious debug log
+        const maskedKey = apiKey.substring(0, 3) + '...' + apiKey.substring(apiKey.length - 3);
+        console.log(`[TMDB Proxy] Method: ${req.method} | Path: ${urlObj.pathname} | KeyLength: ${apiKey.length} | KeyPrefix: ${maskedKey}`);
+
+        // Standard headers for TMDB
+        proxyReq.setHeader('Accept', 'application/json');
     },
     onProxyRes: (proxyRes, req, res) => {
         if (proxyRes.statusCode >= 400) {
