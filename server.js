@@ -129,8 +129,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 // Static Files
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// SPA Catch-all
-app.get('*', (req, res) => {
+// SPA Catch-all - Serve index.html for any remaining routes
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
