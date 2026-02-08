@@ -27,7 +27,7 @@ NextTracker is a modern, privacy-focused application for tracking movies and ser
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/next-tracker.git
+    git clone https://github.com/androtuna/next-tracker.git
     cd next-tracker
     ```
 
