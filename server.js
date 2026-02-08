@@ -62,47 +62,46 @@ app.use('/api', simpleLimiter);
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Proxy API requests to TMDB
-app.use('/api/tmdb', createProxyMiddleware({
-    target: 'https://api.themoviedb.org/3',
-    changeOrigin: true,
-    pathRewrite: {
-        '^/api/tmdb': '',
-    },
-    onProxyReq: (proxyReq, req, res) => {
-        // Fallback for different env variable naming or potential issues
-        // In production, process.env is usually populated by the host (Coolify)
-        const apiKey = (process.env.TMDB_API_KEY || '').trim();
+app.all('/api/tmdb/*', (req, res, next) => {
+    const apiKey = (process.env.TMDB_API_KEY || '').trim();
 
-        if (!apiKey) {
-            console.error('[TMDB Proxy Error] TMDB_API_KEY IS MISSING IN PROCESS.ENV');
-            return;
-        }
-
-        const urlObj = new URL(proxyReq.path, 'https://api.themoviedb.org');
-        const params = new URLSearchParams(urlObj.search);
-
-        params.set('api_key', apiKey);
-        params.set('language', 'tr-TR');
-
-        proxyReq.path = urlObj.pathname + '?' + params.toString();
-
-        // Security-conscious debug log
-        const maskedKey = apiKey.substring(0, 3) + '...' + apiKey.substring(apiKey.length - 3);
-        console.log(`[TMDB Proxy] Method: ${req.method} | Path: ${urlObj.pathname} | KeyLength: ${apiKey.length} | KeyPrefix: ${maskedKey}`);
-
-        // Standard headers for TMDB
-        proxyReq.setHeader('Accept', 'application/json');
-    },
-    onProxyRes: (proxyRes, req, res) => {
-        if (proxyRes.statusCode >= 400) {
-            console.error(`[TMDB Proxy Response Error] Status: ${proxyRes.statusCode} for ${req.url}`);
-        }
-    },
-    onError: (err, req, res) => {
-        console.error('[TMDB Proxy Critical Error]:', err);
-        res.status(500).json({ status: 'error', message: 'TMDB Proxy failed', details: err.message });
+    if (!apiKey) {
+        console.error('[TMDB Proxy Error] TMDB_API_KEY IS MISSING');
+        return res.status(500).json({ error: 'Server configuration error' });
     }
-}));
+
+    createProxyMiddleware({
+        target: 'https://api.themoviedb.org/3',
+        changeOrigin: true,
+        pathRewrite: (path) => {
+            const cleanPath = path.replace('/api/tmdb', '');
+            return cleanPath || '/';
+        },
+        onProxyReq: (proxyReq, req, res) => {
+            const urlObj = new URL(proxyReq.path, 'https://api.themoviedb.org');
+            const params = new URLSearchParams(urlObj.search);
+
+            params.set('api_key', apiKey);
+            params.set('language', 'tr-TR');
+
+            proxyReq.path = urlObj.pathname + '?' + params.toString();
+
+            const maskedKey = apiKey.substring(0, 3) + '...' + apiKey.substring(apiKey.length - 3);
+            console.log(`[TMDB Proxy] Forwarding: ${proxyReq.path.replace(apiKey, 'HIDDEN')}`);
+
+            proxyReq.setHeader('Accept', 'application/json');
+        },
+        onProxyRes: (proxyRes, req, res) => {
+            if (proxyRes.statusCode >= 400) {
+                console.error(`[TMDB Proxy Response Error] ${proxyRes.statusCode} for ${req.url}`);
+            }
+        },
+        onError: (err, req, res) => {
+            console.error('[TMDB Proxy Critical Error]:', err);
+            res.status(500).json({ status: 'error', message: 'TMDB Proxy failed', details: err.message });
+        }
+    })(req, res, next);
+});
 
 // Generic Proxy for WebDAV / External APIs to avoid CORS issues
 app.use('/api/proxy', (req, res, next) => {
