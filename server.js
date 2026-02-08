@@ -63,7 +63,7 @@ app.use('/api/proxy', (req, res, next) => {
     const targetHeader = req.headers['x-target-url'];
     if (!targetHeader) {
         if (req.method !== 'OPTIONS') {
-            console.warn('[Proxy] Missing x-target-url header for method:', req.method);
+            console.warn('[Proxy] Missing x-target-url header');
         }
         return next();
     }
@@ -82,18 +82,23 @@ app.use('/api/proxy', (req, res, next) => {
                 const sub = path.startsWith('/api/proxy') ? path.slice('/api/proxy'.length) : path;
                 const cleanSub = sub.startsWith('/') ? sub : '/' + sub;
 
-                const finalPath = base + cleanSub;
-                console.log(`[Proxy] ${req.method} -> ${origin}${finalPath}`);
-                return finalPath;
+                return base + cleanSub;
             },
             onProxyReq: (proxyReq, req, res) => {
+                // IMPORTANT: Strip cookies to avoid Nextcloud "Could not decrypt session" 500 errors
+                proxyReq.removeHeader('Cookie');
+
+                // Set Host header correctly
                 proxyReq.setHeader('Host', targetUrl.host);
-                // Remove headers that might cause security rejections on target
+
+                // Clear Origin/Referer to avoid security blocks
                 proxyReq.removeHeader('Origin');
                 proxyReq.removeHeader('Referer');
             },
             onProxyRes: (proxyRes, req, res) => {
-                console.log(`[Proxy Response] ${req.method} ${proxyRes.statusCode} from ${targetHeader}`);
+                if (proxyRes.statusCode >= 400) {
+                    console.error(`[Proxy Response Error] ${req.method} ${proxyRes.statusCode} from ${targetHeader}`);
+                }
             },
             onError: (err, req, res) => {
                 console.error('[Proxy Error]:', err);
@@ -109,7 +114,8 @@ app.use('/api/proxy', (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle SPA routing - return index.html for any unknown route
-app.get('*', (req, res) => {
+// Use general middleware to avoid Express 5 path-to-regexp issues
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

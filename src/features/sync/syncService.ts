@@ -2,7 +2,8 @@ import { db } from '@/db/db';
 import type { TrackableItem, AppSettings } from '@/types';
 import { createClient } from 'webdav';
 
-const BACKUP_FILENAME = 'nexttracker_backup.json';
+const BACKUP_DIR = 'NextTracker';
+const BACKUP_FILENAME = `${BACKUP_DIR}/nexttracker_backup.json`;
 
 export const syncService = {
     async exportToJSON() {
@@ -73,8 +74,8 @@ export const syncService = {
             targetUrl += '/';
         }
 
-        // Use local proxy to avoid CORS issues
-        const proxyUrl = '/api/proxy';
+        // Use local proxy to avoid CORS issues - with absolute URL for reliability
+        const proxyUrl = `${window.location.origin}/api/proxy`;
 
         return createClient(proxyUrl, {
             username: settings.nextcloudUsername,
@@ -86,22 +87,40 @@ export const syncService = {
     },
 
     async pushToNextcloud(settings: AppSettings): Promise<void> {
+        let step = 'başlatılıyor';
         try {
             const client = await this.getWebDAVClient(settings);
+
+            step = 'klasör kontrolü';
+            const exists = await client.exists(BACKUP_DIR);
+
+            if (!exists) {
+                step = 'klasör oluşturma';
+                await client.createDirectory(BACKUP_DIR);
+            }
+
+            step = 'veri hazırlama';
             const items = await db.items.toArray();
             const data = JSON.stringify(items, null, 2);
 
-            await client.putFileContents(BACKUP_FILENAME, data, { overwrite: true });
+            step = 'dosya yükleme';
+            await client.putFileContents(BACKUP_FILENAME, data);
 
             await db.settings.update(1, { lastSync: Date.now() });
         } catch (e: any) {
+            console.error(`Detailed Sync error at step "${step}":`, {
+                status: e.status,
+                statusText: e.statusText,
+                message: e.message,
+                response: e.response
+            });
             if (e?.status === 500) {
-                throw new Error('Sunucu 500 hatası döndürdü. WebDAV adresini ve kullanıcı adını kontrol edin; sertifika/kendinden imzalı ise güvenilir olarak işaretleyin.');
+                throw new Error(`Sunucu 500 hatası döndürdü (${step} aşamasında). Lütfen Nextcloud loglarını kontrol edin.`);
             }
             if (e.status === 405) {
-                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir. Lütfen sonuna / eklediğinizden ve doğru Nextcloud WebDAV adresini girdiğinizden (remote.php/dav/...) emin olun.');
+                throw new Error(`405 Method Not Allowed (${step} aşamasında): URL hatalı olabilir veya bu işlem sunucu tarafından engelleniyor.`);
             }
-            throw e;
+            throw new Error(`${step} aşamasında hata oluştu: ${e.message}`);
         }
     },
 
