@@ -1,25 +1,34 @@
-# Stage 1: Build
+# Stage 1: Build React App
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
 # Install dependencies
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json package-lock.json* ./
+RUN npm install
 
-# Copy source and build
+# Copy source and build the React frontend
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve
-FROM nginx:alpine
+# Stage 2: Runtime Node.js Server
+FROM node:20-alpine
 
-# Copy built assets from builder stage
-COPY --from=build /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy package files and install production dependencies
+COPY package.json package-lock.json* ./
+RUN npm install --production
 
-EXPOSE 80
+# Copy built frontend assets from builder stage
+COPY --from=build /app/dist ./dist
 
-CMD ["nginx", "-g", "daemon off;"]
+# Copy the server file and other necessary files
+COPY server.js .
+COPY .env* ./
+
+# NextTracker runs on port 3000 by default (check server.js)
+EXPOSE 3000
+
+# Start the Node.js server
+CMD ["node", "server.js"]

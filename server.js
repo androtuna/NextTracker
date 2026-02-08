@@ -61,6 +61,7 @@ app.use('/api/tmdb', createProxyMiddleware({
 // Generic Proxy for WebDAV / External APIs to avoid CORS issues
 // We use a regex to ensure it catches everything under /api/proxy
 app.all('/api/proxy*', (req, res, next) => {
+    console.log(`[Proxy Request] ${req.method} ${req.url}`);
     const targetHeader = req.headers['x-target-url'];
 
     if (!targetHeader) {
