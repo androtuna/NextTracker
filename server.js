@@ -61,10 +61,11 @@ app.use('/api', simpleLimiter);
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Proxy API requests to TMDB
-app.use('/api/tmdb', (req, res, next) => {
-    const apiKey = (process.env.TMDB_API_KEY || '').trim();
+// Proxy API requests to TMDB - Manual intercept to avoid Express 5 routing issues
+app.use((req, res, next) => {
+    if (!req.url.startsWith('/api/tmdb')) return next();
 
+    const apiKey = (process.env.TMDB_API_KEY || '').trim();
     if (!apiKey) {
         console.error('[TMDB Proxy Error] TMDB_API_KEY IS MISSING');
         return res.status(500).json({ error: 'Server configuration error' });
@@ -74,7 +75,6 @@ app.use('/api/tmdb', (req, res, next) => {
         target: 'https://api.themoviedb.org/3',
         changeOrigin: true,
         pathRewrite: (path) => {
-            // Standardize path by removing /api/tmdb prefix
             const cleanPath = path.replace('/api/tmdb', '');
             return cleanPath || '/';
         },
@@ -86,9 +86,7 @@ app.use('/api/tmdb', (req, res, next) => {
             params.set('language', 'tr-TR');
 
             proxyReq.path = urlObj.pathname + '?' + params.toString();
-
-            const maskedKey = apiKey.substring(0, 3) + '...' + apiKey.substring(apiKey.length - 3);
-            console.log(`[TMDB Proxy] Forwarding: ${req.method} ${proxyReq.path.replace(apiKey, 'HIDDEN')}`);
+            console.log(`[TMDB Intercept] Forwarding: ${req.method} ${urlObj.pathname}`);
 
             proxyReq.setHeader('Accept', 'application/json');
         },
