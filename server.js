@@ -62,7 +62,7 @@ app.use('/api', simpleLimiter);
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Proxy API requests to TMDB
-app.all('/api/tmdb/*', (req, res, next) => {
+app.all('/api/tmdb/:path*', (req, res, next) => {
     const apiKey = (process.env.TMDB_API_KEY || '').trim();
 
     if (!apiKey) {
@@ -74,7 +74,8 @@ app.all('/api/tmdb/*', (req, res, next) => {
         target: 'https://api.themoviedb.org/3',
         changeOrigin: true,
         pathRewrite: (path) => {
-            const cleanPath = path.replace('/api/tmdb', '');
+            // Correctly strip the /api/tmdb prefix regardless of subpath
+            const cleanPath = path.replace(/^\/api\/tmdb/, '');
             return cleanPath || '/';
         },
         onProxyReq: (proxyReq, req, res) => {
