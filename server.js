@@ -59,11 +59,14 @@ app.use('/api/tmdb', createProxyMiddleware({
 }));
 
 // Generic Proxy for WebDAV / External APIs to avoid CORS issues
-app.use('/api/proxy', (req, res, next) => {
+// We use a regex to ensure it catches everything under /api/proxy
+app.all('/api/proxy*', (req, res, next) => {
     const targetHeader = req.headers['x-target-url'];
+
     if (!targetHeader) {
         if (req.method !== 'OPTIONS') {
             console.warn('[Proxy] Missing x-target-url header');
+            return res.status(400).json({ error: 'Missing x-target-url header' });
         }
         return next();
     }
@@ -75,38 +78,40 @@ app.use('/api/proxy', (req, res, next) => {
         createProxyMiddleware({
             target: origin,
             changeOrigin: true,
-            secure: false,
+            secure: false, // For self-signed Nextcloud certs
+            xfwd: true,    // Preserve forwarded headers
             pathRewrite: (path, r) => {
                 const target = new URL(r.headers['x-target-url']);
+                // Ensure base path doesn't have double slashes
                 const base = target.pathname.endsWith('/') ? target.pathname.slice(0, -1) : target.pathname;
-                const sub = path.startsWith('/api/proxy') ? path.slice('/api/proxy'.length) : path;
+
+                // Extract everything after /api/proxy
+                const subMatch = path.match(/^\/api\/proxy(.*)/);
+                const sub = subMatch ? subMatch[1] : '';
                 const cleanSub = sub.startsWith('/') ? sub : '/' + sub;
 
-                return base + cleanSub;
+                const finalPath = base + (cleanSub === '/' ? '' : cleanSub);
+                return finalPath;
             },
             onProxyReq: (proxyReq, req, res) => {
-                // IMPORTANT: Strip cookies to avoid Nextcloud "Could not decrypt session" 500 errors
                 proxyReq.removeHeader('Cookie');
-
-                // Set Host header correctly
                 proxyReq.setHeader('Host', targetUrl.host);
-
-                // Clear Origin/Referer to avoid security blocks
                 proxyReq.removeHeader('Origin');
                 proxyReq.removeHeader('Referer');
             },
             onProxyRes: (proxyRes, req, res) => {
+                // Log only in dev or on error to keep production logs clean
                 if (proxyRes.statusCode >= 400) {
-                    console.error(`[Proxy Response Error] ${req.method} ${proxyRes.statusCode} from ${targetHeader}`);
+                    console.error(`[Proxy Error] ${req.method} ${proxyRes.statusCode} on ${req.url}`);
                 }
             },
             onError: (err, req, res) => {
-                console.error('[Proxy Error]:', err);
-                res.status(500).json({ error: 'Proxy Error', message: err.message });
+                console.error('[Proxy Critical Error]:', err);
+                res.status(500).json({ status: 'error', message: 'Proxy failure', details: err.message });
             }
         })(req, res, next);
     } catch (e) {
-        res.status(400).json({ error: 'Invalid URL in x-target-url' });
+        res.status(400).json({ error: 'Invalid target URL' });
     }
 });
 
