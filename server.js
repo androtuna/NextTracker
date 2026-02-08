@@ -61,9 +61,9 @@ app.use('/api', simpleLimiter);
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Proxy API requests to TMDB - Manual intercept to avoid Express 5 routing issues
+// Proxy API requests to TMDB - Manual intercept using originalUrl to bypass path stripping
 app.use((req, res, next) => {
-    if (!req.url.startsWith('/api/tmdb')) return next();
+    if (!req.originalUrl.startsWith('/api/tmdb')) return next();
 
     const apiKey = (process.env.TMDB_API_KEY || '').trim();
     if (!apiKey) {
@@ -102,8 +102,8 @@ app.use((req, res, next) => {
     })(req, res, next);
 });
 
-// Generic Proxy for WebDAV / External APIs to avoid CORS issues
-app.use('/api/proxy', (req, res, next) => {
+// Generic Proxy for WebDAV - Matches after /api is stripped by rate limiter
+app.use('/proxy', (req, res, next) => {
     console.log(`[Proxy Request] ${req.method} ${req.url}`);
     const targetHeader = req.headers['x-target-url'];
 
@@ -130,7 +130,7 @@ app.use('/api/proxy', (req, res, next) => {
                 let base = target.pathname;
                 if (base.endsWith('/')) base = base.slice(0, -1);
 
-                const sub = path.replace('/api/proxy', '');
+                const sub = path.replace(/^\/api\/proxy/, '').replace(/^\/proxy/, '');
                 const cleanSub = sub.startsWith('/') ? sub : '/' + sub;
 
                 const finalPath = base + (cleanSub === '/' ? '' : cleanSub);
