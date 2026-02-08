@@ -56,8 +56,19 @@ export const syncService = {
             throw new Error('Nextcloud settings are missing');
         }
 
-        // Normalize URL: Must end with /
         let targetUrl = settings.nextcloudUrl.trim();
+
+        // Detection for UI vs WebDAV URL
+        if (targetUrl.includes('index.php/apps/files')) {
+            throw new Error('Hatalı URL: Girdiğiniz adres Nextcloud arayüz adresidir. Lütfen "Ayarlar > WebDAV" kısmındaki doğru adresi (remote.php/dav/...) kullanın.');
+        }
+
+        // Stronger validation: require remote.php/dav path (common Nextcloud WebDAV pattern)
+        if (!/remote\.php\/dav\/files\//.test(targetUrl)) {
+            throw new Error('Hatalı WebDAV adresi. Örnek format: https://sunucu.com/remote.php/dav/files/kullanici/');
+        }
+
+        // Normalize URL: Must end with /
         if (!targetUrl.endsWith('/')) {
             targetUrl += '/';
         }
@@ -80,10 +91,13 @@ export const syncService = {
             const items = await db.items.toArray();
             const data = JSON.stringify(items, null, 2);
 
-            await client.putFileContents(BACKUP_FILENAME, data);
+            await client.putFileContents(BACKUP_FILENAME, data, { overwrite: true });
 
             await db.settings.update(1, { lastSync: Date.now() });
         } catch (e: any) {
+            if (e?.status === 500) {
+                throw new Error('Sunucu 500 hatası döndürdü. WebDAV adresini ve kullanıcı adını kontrol edin; sertifika/kendinden imzalı ise güvenilir olarak işaretleyin.');
+            }
             if (e.status === 405) {
                 throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir. Lütfen sonuna / eklediğinizden ve doğru Nextcloud WebDAV adresini girdiğinizden (remote.php/dav/...) emin olun.');
             }
@@ -92,6 +106,7 @@ export const syncService = {
     },
 
     async pullFromNextcloud(settings: AppSettings): Promise<number> {
+        const targetUrl = settings.nextcloudUrl || '';
         try {
             const client = await this.getWebDAVClient(settings);
 
@@ -113,20 +128,22 @@ export const syncService = {
             return items.length;
         } catch (e: any) {
             if (e.status === 405) {
-                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir.');
+                throw new Error(`405 Method Not Allowed: Hesabınız bu işleme izin vermiyor veya URL hatalı. Hedef URL: ${targetUrl}`);
             }
             throw e;
         }
     },
 
     async testConnection(settings: AppSettings): Promise<boolean> {
+        const targetUrl = settings.nextcloudUrl || '';
         try {
             const client = await this.getWebDAVClient(settings);
+            // List root to test connection
             await client.getDirectoryContents('/');
             return true;
         } catch (e: any) {
             if (e.status === 405) {
-                throw new Error('405 Method Not Allowed: WebDAV URL hatalı olabilir. Lütfen URL sonunun / ile bittiğini kontrol edin.');
+                throw new Error(`405 Method Not Allowed: WebDAV bağlantısı reddedildi. Lütfen girdiğiniz URL'nin (remote.php/dav/files/kullanici/) doğru olduğundan emin olun. Hedef: ${targetUrl}`);
             }
             throw e;
         }

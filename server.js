@@ -13,8 +13,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security: Enable CORS if needed (though we are serving same origin)
-app.use(cors());
+// Security: Enable CORS with WebDAV headers allowed
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 'LOCK', 'UNLOCK'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-target-url', 'Depth', 'Destination', 'If-Match', 'If-None-Match'],
+    exposedHeaders: ['ETag', 'Content-Length']
+}));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
@@ -57,40 +62,38 @@ app.use('/api/tmdb', createProxyMiddleware({
 app.use('/api/proxy', (req, res, next) => {
     const targetHeader = req.headers['x-target-url'];
     if (!targetHeader) {
-        return res.status(400).json({ error: 'Missing x-target-url header' });
+        if (req.method !== 'OPTIONS') {
+            console.warn('[Proxy] Missing x-target-url header for method:', req.method);
+        }
+        return next();
     }
 
     try {
         const targetUrl = new URL(targetHeader);
         const origin = targetUrl.origin;
 
-        // Debug log
-        console.log(`[Proxy] ${req.method} ${req.url} -> ${targetHeader}`);
-
         createProxyMiddleware({
             target: origin,
             changeOrigin: true,
-            secure: false, // In case of self-signed certs common in home labs
+            secure: false,
             pathRewrite: (path, r) => {
                 const target = new URL(r.headers['x-target-url']);
-                const proxyBase = '/api/proxy';
-                const subPath = path.startsWith(proxyBase) ? path.slice(proxyBase.length) : path;
+                const base = target.pathname.endsWith('/') ? target.pathname.slice(0, -1) : target.pathname;
+                const sub = path.startsWith('/api/proxy') ? path.slice('/api/proxy'.length) : path;
+                const cleanSub = sub.startsWith('/') ? sub : '/' + sub;
 
-                // Construct the final path on the target server
-                let basePath = target.pathname;
-                if (basePath.endsWith('/') && subPath.startsWith('/')) {
-                    basePath = basePath.slice(0, -1);
-                } else if (!basePath.endsWith('/') && !subPath.startsWith('/')) {
-                    basePath = basePath + '/';
-                }
-
-                return basePath + subPath;
+                const finalPath = base + cleanSub;
+                console.log(`[Proxy] ${req.method} -> ${origin}${finalPath}`);
+                return finalPath;
             },
             onProxyReq: (proxyReq, req, res) => {
-                // Ensure headers are clean
-                proxyReq.setHeader('Origin', origin);
-                proxyReq.setHeader('Referer', origin);
-                // Important for WebDAV: Ensure Content-Length is handled by the proxy
+                proxyReq.setHeader('Host', targetUrl.host);
+                // Remove headers that might cause security rejections on target
+                proxyReq.removeHeader('Origin');
+                proxyReq.removeHeader('Referer');
+            },
+            onProxyRes: (proxyRes, req, res) => {
+                console.log(`[Proxy Response] ${req.method} ${proxyRes.statusCode} from ${targetHeader}`);
             },
             onError: (err, req, res) => {
                 console.error('[Proxy Error]:', err);
