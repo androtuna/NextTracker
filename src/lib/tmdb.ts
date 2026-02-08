@@ -1,7 +1,5 @@
 
-import { getSettings } from '@/db/db';
 
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 export interface TMDBSearchResult {
@@ -57,14 +55,11 @@ export interface TMDBSearchResponse {
 }
 
 async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) {
-    const settings = await getSettings();
-    if (!settings.tmdbApiKey) {
-        throw new Error('TMDB API Key is missing');
-    }
+    // Ensure endpoint starts with /
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-    const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
-    url.searchParams.append('api_key', settings.tmdbApiKey);
-    url.searchParams.append('language', 'tr-TR'); // Default to Turkish as per request context
+    // We use the local proxy which securely handles the API Key and language
+    const url = new URL(`${window.location.origin}/api/tmdb${cleanEndpoint}`);
 
     Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);

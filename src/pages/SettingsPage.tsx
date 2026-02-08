@@ -158,26 +158,6 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {/* API Configuration */}
-                <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-                    <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        {t('apiConfig')}
-                    </h2>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">{t('tmdbApiKey')}</label>
-                            <input
-                                type="password"
-                                value={settings.tmdbApiKey || ''}
-                                onChange={e => handleChange('tmdbApiKey', e.target.value)}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                placeholder="TMDB API Key"
-                            />
-                            <p className="text-xs text-gray-600 mt-2">{t('tmdbDesc')}</p>
-                        </div>
-                    </div>
-                </section>
-
                 {/* Nextcloud / WebDAV Configuration */}
                 <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">

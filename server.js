@@ -21,11 +21,41 @@ app.use(cors({
     exposedHeaders: ['ETag', 'Content-Length']
 }));
 
+// Simple Rate Limiter to prevent API abuse
+const rateLimitStore = {};
+const RATE_LIMIT_THRESHOLD = 100; // per 15 minutes
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
+
+const simpleLimiter = (req, res, next) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const now = Date.now();
+
+    if (!rateLimitStore[ip]) {
+        rateLimitStore[ip] = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
+    } else {
+        if (now > rateLimitStore[ip].resetAt) {
+            rateLimitStore[ip] = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
+        } else {
+            rateLimitStore[ip].count++;
+        }
+    }
+
+    if (rateLimitStore[ip].count > RATE_LIMIT_THRESHOLD) {
+        console.warn(`[Rate Limit] Blocked IP: ${ip} (Count: ${rateLimitStore[ip].count})`);
+        return res.status(429).json({
+            error: 'Too Many Requests',
+            message: 'Hız sınırını aştınız. Lütfen 15 dakika sonra tekrar deneyin.'
+        });
+    }
+    next();
+};
+
+app.use('/api', simpleLimiter);
+
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Proxy API requests to TMDB
-// Endpoint: /api/tmdb/search/multi?query=inception -> https://api.themoviedb.org/3/search/multi?query=inception&api_key=SECRET
 app.use('/api/tmdb', createProxyMiddleware({
     target: 'https://api.themoviedb.org/3',
     changeOrigin: true,
@@ -33,27 +63,28 @@ app.use('/api/tmdb', createProxyMiddleware({
         '^/api/tmdb': '', // strip /api/tmdb from the path
     },
     onProxyReq: (proxyReq, req, res) => {
-        // Inject API Key from Environment Variable
         const apiKey = process.env.TMDB_API_KEY;
 
         if (!apiKey) {
-            console.error('TMDB_API_KEY is missing in environment variables!');
+            console.error('[TMDB Proxy] TMDB_API_KEY is missing!');
             return;
         }
 
-        // Append api_key to query parameters
-        // Check if there are existing query params
-        const currentPath = proxyReq.path;
-        const separator = currentPath.includes('?') ? '&' : '?';
-        const newPath = `${currentPath}${separator}api_key=${apiKey}&language=tr-TR`;
+        // Parse query string
+        const urlObj = new URL(proxyReq.path, 'https://api.themoviedb.org');
+        const params = new URLSearchParams(urlObj.search);
 
-        proxyReq.path = newPath;
+        // Always inject server-side API Key
+        params.set('api_key', apiKey);
+        params.set('language', 'tr-TR');
 
-        // Log for debugging (Do not log full keys in production ideally, but helpful for setup)
-        console.log(`Proxied request to: ${newPath.replace(apiKey, 'HIDDEN')}`);
+        // Reconstruct path
+        proxyReq.path = urlObj.pathname + '?' + params.toString();
+
+        console.log(`[TMDB Proxy] ${req.method} ${proxyReq.path.replace(apiKey, 'REDACTED')}`);
     },
     onError: (err, req, res) => {
-        console.error('Proxy Error:', err);
+        console.error('TMDB Proxy Error:', err);
         res.status(500).json({ error: 'Proxy Error', details: err.message });
     }
 }));
