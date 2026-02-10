@@ -83,6 +83,8 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [fullDetail, setFullDetail] = useState<TMDBDetail | null>(null);
     const [loading, setLoading] = useState(false);
+    const [imdbRating, setImdbRating] = useState<string | null>(null);
+    const [imdbVotes, setImdbVotes] = useState<string | null>(null);
 
     useEffect(() => {
         if (open && initialItem) {
@@ -98,9 +100,24 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                 try {
                     const data = await tmdbClient.getDetails(mediaType as any, initialItem.id);
                     setFullDetail(data);
+
+                    const imdbId = data.external_ids?.imdb_id;
+                    if (imdbId) {
+                        const res = await fetch(`/api/omdb/${imdbId}`);
+                        if (res.ok) {
+                            const omdb = await res.json();
+                            setImdbRating(omdb?.imdbRating && omdb.imdbRating !== 'N/A' ? omdb.imdbRating : null);
+                            setImdbVotes(omdb?.imdbVotes && omdb.imdbVotes !== 'N/A' ? omdb.imdbVotes : null);
+                        }
+                    } else {
+                        setImdbRating(null);
+                        setImdbVotes(null);
+                    }
                 } catch (e) {
                     console.error('Failed to fetch details:', e);
                     setFullDetail({ ...initialItem, media_type: mediaType } as any);
+                    setImdbRating(null);
+                    setImdbVotes(null);
                 } finally {
                     setLoading(false);
                 }
@@ -109,6 +126,8 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
         } else {
             document.body.style.overflow = '';
             setFullDetail(null);
+            setImdbRating(null);
+            setImdbVotes(null);
         }
 
         const handlePopState = () => { if (open) onClose(); };
@@ -283,8 +302,9 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                                 <p className="font-semibold">{item.vote_count?.toLocaleString('tr-TR') || '0'}</p>
                                             </div>
                                             <div className="rounded-lg bg-white/5 p-2">
-                                                <p className="text-white/40">Popülerlik</p>
-                                                <p className="font-semibold">{Math.round(item.popularity || 0)}</p>
+                                                <p className="text-white/40">IMDb</p>
+                                                <p className="font-semibold">{imdbRating || '-'}</p>
+                                                {imdbVotes ? <p className="text-[10px] text-white/40">{imdbVotes} oy</p> : null}
                                             </div>
                                         </div>
                                     </div>

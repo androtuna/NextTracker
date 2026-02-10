@@ -49,6 +49,34 @@ app.use('/api/tmdb', async (req, res) => {
     }
 });
 
+// --- MANUEL OMDB PROXY ---
+app.get('/api/omdb/:imdbId', async (req, res) => {
+    const apiKey = (process.env.OMDB_API_KEY || '').trim();
+    if (!apiKey) {
+        console.error('[OMDb] API Key missing');
+        return res.status(500).json({ error: 'OMDB_API_KEY is not set' });
+    }
+
+    const imdbId = req.params.imdbId;
+    if (!imdbId) return res.status(400).json({ error: 'Missing imdbId' });
+
+    const targetUrl = new URL('http://www.omdbapi.com/');
+    targetUrl.searchParams.set('i', imdbId);
+    targetUrl.searchParams.set('apikey', apiKey);
+    targetUrl.searchParams.set('plot', 'short');
+
+    console.log(`[OMDb Proxy] Fetching: ${imdbId}`);
+
+    try {
+        const response = await fetch(targetUrl.toString());
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (error) {
+        console.error('[OMDb Proxy Error]', error.message);
+        res.status(500).json({ error: 'OMDb Connection Failed' });
+    }
+});
+
 // --- MANUEL WEBDAV PROXY ---
 app.use('/api/proxy', async (req, res) => {
     const targetUrlHeader = req.headers['x-target-url'];
