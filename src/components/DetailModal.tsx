@@ -421,28 +421,6 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                 </section>
                             ) : null}
 
-                            {item.recommendations?.results?.length ? (
-                                <section>
-                                    <h3 className="text-xl font-bold text-white mb-6">Önerilenler</h3>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                        {item.recommendations.results.slice(0, 8).map(rec => (
-                                            <div key={rec.id} className="aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 border border-white/5 relative group cursor-pointer shadow-lg hover:shadow-indigo-500/10 transition-all">
-                                                <img
-                                                    src={tmdbClient.getImageUrl(rec.poster_path || '', 'w500')}
-                                                    alt={rec.title || rec.name}
-                                                    className="w-full h-full object-cover group-hover:opacity-40 transition duration-300"
-                                                />
-                                                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                    <p className="text-xs font-bold text-white line-clamp-2">{rec.title || rec.name}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-8">
                             <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl space-y-6">
                                 <div className="flex items-center gap-4">
                                     <div className="size-12 rounded-xl bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center">
@@ -523,6 +501,30 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                 </div>
                             </div>
 
+                            
+
+                            {item.recommendations?.results?.length ? (
+                                <section>
+                                    <h3 className="text-xl font-bold text-white mb-6">Önerilenler</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                        {item.recommendations.results.slice(0, 8).map(rec => (
+                                            <div key={rec.id} className="aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 border border-white/5 relative group cursor-pointer shadow-lg hover:shadow-indigo-500/10 transition-all">
+                                                <img
+                                                    src={tmdbClient.getImageUrl(rec.poster_path || '', 'w500')}
+                                                    alt={rec.title || rec.name}
+                                                    className="w-full h-full object-cover group-hover:opacity-40 transition duration-300"
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    <p className="text-xs font-bold text-white line-clamp-2">{rec.title || rec.name}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-8">
                             {providers?.flatrate?.length || providers?.rent?.length || providers?.buy?.length ? (
                                 <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl space-y-4">
                                     <div className="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-wider">
