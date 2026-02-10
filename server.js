@@ -92,7 +92,10 @@ app.use('/api/proxy', async (req, res) => {
             'connection',
             'x-target-url',
             'content-length', // Let fetch calculate this to avoid 412/400 errors
-            'expect'          // 'Expect: 100-continue' can break some proxies
+            'expect',         // 'Expect: 100-continue' can break some proxies
+            'cookie',       // Block browser cookies to avoid Nextcloud's 'Strict Cookie Check'
+            'cookie2',
+            'set-cookie'
         ];
 
         Object.entries(req.headers).forEach(([key, value]) => {
