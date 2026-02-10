@@ -23,6 +23,19 @@ export interface TMDBDetail extends TMDBSearchResult {
     status?: string;
     homepage?: string;
     tagline?: string;
+    budget?: number;
+    revenue?: number;
+    original_language?: string;
+    original_title?: string;
+    original_name?: string;
+    production_companies?: { id: number; name: string; logo_path?: string }[];
+    keywords?: {
+        keywords?: { id: number; name: string }[];
+        results?: { id: number; name: string }[]; // TV uses results key
+    };
+    recommendations?: {
+        results: TMDBSearchResult[];
+    };
     videos?: {
         results: Array<{
             key: string;
@@ -42,7 +55,8 @@ export interface TMDBDetail extends TMDBSearchResult {
         crew: Array<{
             id: number;
             name: string;
-            job?: string;
+            job: string;
+            profile_path?: string;
         }>;
     };
 }
@@ -91,8 +105,11 @@ export const tmdbClient = {
     },
 
     async getDetails(type: 'movie' | 'tv', id: number): Promise<TMDBDetail> {
-        // Append videos and credits for richer detail view
-        const detail = await fetchTMDB(`/${type}/${id}`, { append_to_response: 'videos,credits' });
+        // Fetch rich data in one request: credits (cast/crew), videos (trailers),
+        // recommendations (similar movies), and keywords
+        const detail = await fetchTMDB(`/${type}/${id}`, {
+            append_to_response: 'videos,credits,recommendations,keywords'
+        });
         return { ...detail, media_type: type } as TMDBDetail;
     },
 
