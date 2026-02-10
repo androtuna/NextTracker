@@ -1,5 +1,4 @@
 import express from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -13,127 +12,76 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Global Request Logger
+// Global Logger
 app.use((req, res, next) => {
-    console.log(`[Incoming Request] ${req.method} ${req.url}`);
+    console.log(`[Request] ${req.method} ${req.url}`);
     next();
 });
 
-// Security: Enable CORS
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 'LOCK', 'UNLOCK'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-target-url', 'Depth', 'Destination', 'If-Match', 'If-None-Match'],
-    exposedHeaders: ['ETag', 'Content-Length']
-}));
+app.use(cors());
 
-// --- PROXY DEFINITIONS ---
-
-// 1. TMDB Proxy
-const tmdbProxy = createProxyMiddleware({
-    target: 'https://api.themoviedb.org/3',
-    changeOrigin: true,
-    pathRewrite: {
-        '^/api/tmdb': '',
-    },
-    onProxyReq: (proxyReq, req, res) => {
-        const apiKey = (process.env.TMDB_API_KEY || '').trim();
-        if (!apiKey) {
-            console.error('[TMDB Proxy Error] TMDB_API_KEY IS MISSING');
-            return;
-        }
-
-        const urlObj = new URL(proxyReq.path, 'https://api.themoviedb.org');
-        const params = new URLSearchParams(urlObj.search);
-        params.set('api_key', apiKey);
-        params.set('language', 'tr-TR');
-
-        proxyReq.path = urlObj.pathname + '?' + params.toString();
-        console.log(`[TMDB Proxy] Forwarding: ${req.method} ${urlObj.pathname}`);
-        proxyReq.setHeader('Accept', 'application/json');
-    },
-    onError: (err, req, res) => {
-        console.error('[TMDB Proxy Error]:', err.message);
-        res.status(500).json({ error: 'Proxy Error', details: err.message });
+// --- MANUEL TMDB PROXY ---
+// Bu bölüm Express'in rota motoruna güvenmeden isteği yakalar
+app.use('/api/tmdb', async (req, res) => {
+    const apiKey = (process.env.TMDB_API_KEY || '').trim();
+    if (!apiKey) {
+        console.error('[TMDB] API Key missing');
+        return res.status(500).json({ error: 'TMDB_API_KEY is not set' });
     }
-});
 
-// 2. WebDAV/Generic Proxy
-const genericWebdavProxy = (req, res, next) => {
-    const targetHeader = req.headers['x-target-url'];
-    if (!targetHeader) {
-        return req.method === 'OPTIONS' ? next() : res.status(400).json({ error: 'Missing x-target-url' });
-    }
+    // req.url burada /movie/popular veya /search/multi?query=... şeklindedir
+    const subPath = req.url;
+    const targetUrl = new URL(`https://api.themoviedb.org/3${subPath}`);
+
+    // API anahtarını ve dili ekle
+    targetUrl.searchParams.set('api_key', apiKey);
+    targetUrl.searchParams.set('language', 'tr-TR');
+
+    console.log(`[TMDB Proxy] Fetching: ${targetUrl.pathname}`);
 
     try {
-        const targetUrl = new URL(targetHeader);
-        createProxyMiddleware({
-            target: targetUrl.origin,
-            changeOrigin: true,
-            secure: false,
-            pathRewrite: (path) => {
-                const targetHeaderUrl = new URL(req.headers['x-target-url']);
-                let base = targetHeaderUrl.pathname.endsWith('/') ? targetHeaderUrl.pathname.slice(0, -1) : targetHeaderUrl.pathname;
-                const sub = path.replace(/^\/api\/proxy/, '').replace(/^\/proxy/, '');
-                return base + (sub.startsWith('/') ? sub : '/' + sub);
+        const response = await fetch(targetUrl.toString());
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (error) {
+        console.error('[TMDB Proxy Error]', error.message);
+        res.status(500).json({ error: 'TMDB Connection Failed' });
+    }
+});
+
+// --- MANUEL WEBDAV PROXY ---
+app.use('/api/proxy', async (req, res) => {
+    const targetUrlHeader = req.headers['x-target-url'];
+    if (!targetUrlHeader) return res.status(400).send('Missing x-target-url');
+
+    try {
+        const targetUrl = new URL(targetUrlHeader);
+        // Basit bir forward mekanizması
+        const response = await fetch(targetUrlHeader, {
+            method: req.method,
+            headers: {
+                'Authorization': req.headers['authorization'] || '',
+                'Content-Type': req.headers['content-type'] || 'application/xml'
             },
-            onProxyReq: (proxyReq) => {
-                proxyReq.removeHeader('Cookie');
-                proxyReq.setHeader('Host', targetUrl.host);
-                proxyReq.removeHeader('Origin');
-                proxyReq.removeHeader('Referer');
-            },
-            onError: (err, req, res) => {
-                console.error('[Generic Proxy Error]:', err.message);
-                res.status(500).json({ error: 'Proxy failure' });
-            }
-        })(req, res, next);
-    } catch (e) {
-        res.status(400).json({ error: 'Invalid target URL' });
+            body: ['POST', 'PUT'].includes(req.method) ? req : undefined
+        });
+
+        const data = await response.text();
+        res.status(response.status).send(data);
+    } catch (error) {
+        res.status(500).send(error.message);
     }
-};
+});
 
-// --- RATE LIMITING ---
-const rateLimitStore = {};
-const RATE_LIMIT_THRESHOLD = 500; // Increased for media discovery
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
-
-const simpleLimiter = (req, res, next) => {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const now = Date.now();
-    if (!rateLimitStore[ip]) {
-        rateLimitStore[ip] = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
-    } else if (now > rateLimitStore[ip].resetAt) {
-        rateLimitStore[ip] = { count: 1, resetAt: now + RATE_LIMIT_WINDOW };
-    } else {
-        rateLimitStore[ip].count++;
-    }
-    if (rateLimitStore[ip].count > RATE_LIMIT_THRESHOLD) {
-        return res.status(429).json({ error: 'Too Many Requests' });
-    }
-    next();
-};
-
-// --- ROUTING ---
-
-// API Proxies FIRST (No prefix stripping issues)
-app.use('/api/tmdb', tmdbProxy);
-app.use('/api/proxy', genericWebdavProxy);
-
-// Rate Limiter SECOND
-app.use('/api', simpleLimiter);
-
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
-// Static Files
+// SPA & Static Files
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// SPA Catch-all - Serve index.html for any remaining routes
-app.use((req, res) => {
+// SPA Catch-all (Express 5 uyumlu)
+app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) return next();
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Secure API Gateway running on port ${PORT}`);
 });
