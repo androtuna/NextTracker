@@ -85,38 +85,49 @@ app.use('/api/proxy', async (req, res) => {
     try {
         const targetUrl = new URL(targetUrlHeader);
 
-        // Forward all relevant headers for WebDAV
+        // Forward all relevant headers for WebDAV, but be careful with some
         const headers = {};
-        const skipHeaders = ['host', 'connection', 'x-target-url'];
+        const blockedHeaders = [
+            'host',
+            'connection',
+            'x-target-url',
+            'content-length', // Let fetch calculate this to avoid 412/400 errors
+            'expect'          // 'Expect: 100-continue' can break some proxies
+        ];
+
         Object.entries(req.headers).forEach(([key, value]) => {
-            if (!skipHeaders.includes(key.toLowerCase())) {
+            if (!blockedHeaders.includes(key.toLowerCase())) {
                 headers[key] = value;
             }
         });
         headers['host'] = targetUrl.host;
 
-        // Methods that usually have a body in WebDAV
-        const hasBody = !['GET', 'HEAD', 'DELETE'].includes(req.method);
+        // Determine if we should send a body
+        const hasBody = !['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(req.method);
 
         const response = await fetch(targetUrlHeader, {
             method: req.method,
             headers: headers,
             body: hasBody ? req : undefined,
-            // @ts-ignore - duplex is needed for streaming request body in Node.js fetch
-            duplex: hasBody ? 'half' : undefined
+            // @ts-ignore
+            duplex: hasBody ? 'half' : undefined,
+            redirect: 'follow'
         });
 
         const data = await response.text();
 
         // Forward back response headers
         response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
+            // Skip headers that could cause issues with the client
+            if (!['content-encoding', 'transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+                res.setHeader(key, value);
+            }
         });
 
         res.status(response.status).send(data);
     } catch (error) {
         console.error('[Generic Proxy Error]', error.message);
-        res.status(500).send(error.message);
+        res.status(500).send(`Proxy Error: ${error.message}`);
     }
 });
 
