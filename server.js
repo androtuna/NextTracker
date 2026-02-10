@@ -84,19 +84,38 @@ app.use('/api/proxy', async (req, res) => {
 
     try {
         const targetUrl = new URL(targetUrlHeader);
-        // Basit bir forward mekanizması
+
+        // Forward all relevant headers for WebDAV
+        const headers = {};
+        const skipHeaders = ['host', 'connection', 'x-target-url'];
+        Object.entries(req.headers).forEach(([key, value]) => {
+            if (!skipHeaders.includes(key.toLowerCase())) {
+                headers[key] = value;
+            }
+        });
+        headers['host'] = targetUrl.host;
+
+        // Methods that usually have a body in WebDAV
+        const hasBody = !['GET', 'HEAD', 'DELETE'].includes(req.method);
+
         const response = await fetch(targetUrlHeader, {
             method: req.method,
-            headers: {
-                'Authorization': req.headers['authorization'] || '',
-                'Content-Type': req.headers['content-type'] || 'application/xml'
-            },
-            body: ['POST', 'PUT'].includes(req.method) ? req : undefined
+            headers: headers,
+            body: hasBody ? req : undefined,
+            // @ts-ignore - duplex is needed for streaming request body in Node.js fetch
+            duplex: hasBody ? 'half' : undefined
         });
 
         const data = await response.text();
+
+        // Forward back response headers
+        response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+        });
+
         res.status(response.status).send(data);
     } catch (error) {
+        console.error('[Generic Proxy Error]', error.message);
         res.status(500).send(error.message);
     }
 });
