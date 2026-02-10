@@ -1,5 +1,4 @@
 
-
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 export interface TMDBSearchResult {
@@ -13,6 +12,8 @@ export interface TMDBSearchResult {
     release_date?: string;
     first_air_date?: string;
     vote_average: number;
+    vote_count?: number;
+    popularity?: number;
 }
 
 export interface TMDBDetail extends TMDBSearchResult {
@@ -29,6 +30,9 @@ export interface TMDBDetail extends TMDBSearchResult {
     original_title?: string;
     original_name?: string;
     production_companies?: { id: number; name: string; logo_path?: string }[];
+    production_countries?: { iso_3166_1: string; name: string }[];
+    spoken_languages?: { iso_639_1: string; english_name: string; name: string }[];
+    belongs_to_collection?: { id: number; name: string; poster_path?: string; backdrop_path?: string };
     keywords?: {
         keywords?: { id: number; name: string }[];
         results?: { id: number; name: string }[]; // TV uses results key
@@ -58,6 +62,41 @@ export interface TMDBDetail extends TMDBSearchResult {
             job: string;
             profile_path?: string;
         }>;
+    };
+    release_dates?: {
+        results: Array<{
+            iso_3166_1: string;
+            release_dates: Array<{
+                certification: string;
+                release_date: string;
+                type: number;
+            }>;
+        }>;
+    };
+    content_ratings?: {
+        results: Array<{
+            iso_3166_1: string;
+            rating: string;
+        }>;
+    };
+    external_ids?: {
+        imdb_id?: string;
+        facebook_id?: string;
+        instagram_id?: string;
+        twitter_id?: string;
+        wikidata_id?: string;
+    };
+    watch_providers?: {
+        results: Record<string, {
+            flatrate?: Array<{ provider_id: number; provider_name: string; logo_path?: string }>;
+            rent?: Array<{ provider_id: number; provider_name: string; logo_path?: string }>;
+            buy?: Array<{ provider_id: number; provider_name: string; logo_path?: string }>;
+            link?: string;
+        }>;
+    };
+    images?: {
+        backdrops?: Array<{ file_path: string }>;
+        posters?: Array<{ file_path: string }>;
     };
 }
 
@@ -106,16 +145,25 @@ export const tmdbClient = {
 
     async getDetails(type: 'movie' | 'tv', id: number): Promise<TMDBDetail> {
         // Fetch rich data in one request: credits (cast/crew), videos (trailers),
-        // recommendations (similar movies), and keywords
+        // recommendations (similar movies), keywords, release info, providers and images
         const detail = await fetchTMDB(`/${type}/${id}`, {
-            append_to_response: 'videos,credits,recommendations,keywords'
+            append_to_response: 'videos,credits,recommendations,keywords,release_dates,content_ratings,external_ids,watch/providers,images'
         });
+
+        const watchProviders = (detail as any)['watch/providers'];
+        if (watchProviders) {
+            (detail as any).watch_providers = watchProviders;
+            delete (detail as any)['watch/providers'];
+        }
+
         return { ...detail, media_type: type } as TMDBDetail;
     },
 
-    getImageUrl(path: string, size: 'w500' | 'original' = 'w500') {
+    getImageUrl(path: string, size: 'w500' | 'original' | 'w780' | 'w300' = 'w500') {
         if (!path) return '';
-        const baseUrl = size === 'original' ? 'https://image.tmdb.org/t/p/original' : IMAGE_BASE_URL;
+        const baseUrl = size === 'original'
+            ? 'https://image.tmdb.org/t/p/original'
+            : `https://image.tmdb.org/t/p/${size}`;
         return `${baseUrl}${path}`;
     }
 };
