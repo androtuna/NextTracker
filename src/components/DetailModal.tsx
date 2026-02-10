@@ -22,17 +22,22 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
         if (open && initialItem) {
             document.body.style.overflow = 'hidden';
             window.history.pushState({ modal: true }, '');
+
+            // Re-center scroll on open
             if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
 
-            // Fetch full details if we only have summary
+            // Detect media type if missing (sometimes popular/top_rated don't include it)
+            const mediaType = initialItem.media_type || (initialItem.release_date ? 'movie' : 'tv');
+
             const fetchFull = async () => {
                 setLoading(true);
                 try {
-                    const data = await tmdbClient.getDetails(initialItem.media_type as any, initialItem.id);
+                    console.log(`[DetailModal] Loading full details for ${mediaType}:${initialItem.id}`);
+                    const data = await tmdbClient.getDetails(mediaType as any, initialItem.id);
                     setFullDetail(data);
                 } catch (e) {
                     console.error('Failed to fetch details:', e);
-                    setFullDetail(initialItem); // Fallback to what we have
+                    setFullDetail({ ...initialItem, media_type: mediaType } as any);
                 } finally {
                     setLoading(false);
                 }
@@ -83,29 +88,32 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md overflow-y-auto flex justify-center py-4 md:py-10" ref={scrollContainerRef}>
-            <div className="w-full max-w-6xl px-4 flex flex-col items-center">
-                <div className="relative w-full overflow-hidden rounded-3xl bg-zinc-900 border border-white/5 shadow-2xl animate-in zoom-in-95 fade-in duration-300">
+        <div
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl overflow-y-auto"
+            ref={scrollContainerRef}
+        >
+            <div className="min-h-full w-full flex items-start justify-center p-4 md:p-8 lg:p-12">
+                <div className="relative w-full max-w-6xl rounded-3xl bg-zinc-900 border border-white/5 shadow-2xl animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
 
                     {/* Hero Header */}
-                    <div className="relative aspect-[16/9] md:h-[450px] w-full">
+                    <div className="relative aspect-[16/9] md:h-[500px] w-full shrink-0">
                         {backdrop ? (
                             <img src={backdrop} className="absolute inset-0 w-full h-full object-cover" alt={title} />
                         ) : (
                             <div className="absolute inset-0 bg-zinc-800" />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-black/30" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent" />
 
                         {loading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-30 transition-opacity">
-                                <Loader2 className="size-10 text-blue-500 animate-spin mb-2" />
-                                <span className="text-white text-sm font-medium">Veriler yükleniyor...</span>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-50 transition-opacity">
+                                <Loader2 className="size-10 text-blue-500 animate-spin mb-4" />
+                                <span className="text-white font-medium tracking-wide">İçerik Yükleniyor...</span>
                             </div>
                         )}
 
                         <button
                             onClick={() => window.history.back()}
-                            className="absolute top-6 right-6 size-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/80 transition z-40"
+                            className="absolute top-6 right-6 size-12 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black hover:scale-110 transition-all z-[60]"
                         >
                             <X className="size-6" />
                         </button>
