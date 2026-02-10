@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { X, Play, Clock, Users, Check, Plus, Star, Globe, TrendingUp, DollarSign } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X, Play, Clock, Users, Check, Plus, Star, Globe, TrendingUp, DollarSign, Loader2 } from 'lucide-react';
 import { tmdbClient, type TMDBDetail } from '@/lib/tmdb';
 import { mapTmdbToItem } from '@/features/search/utils';
 import { trackingRepository } from '@/features/tracking/repository';
@@ -13,16 +13,34 @@ interface DetailModalProps {
     onClose: () => void;
 }
 
-export function DetailModal({ item, open, onClose }: DetailModalProps) {
+export function DetailModal({ item: initialItem, open, onClose }: DetailModalProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [fullDetail, setFullDetail] = useState<TMDBDetail | null>(null);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (open) {
+        if (open && initialItem) {
             document.body.style.overflow = 'hidden';
             window.history.pushState({ modal: true }, '');
             if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+
+            // Fetch full details if we only have summary
+            const fetchFull = async () => {
+                setLoading(true);
+                try {
+                    const data = await tmdbClient.getDetails(initialItem.media_type as any, initialItem.id);
+                    setFullDetail(data);
+                } catch (e) {
+                    console.error('Failed to fetch details:', e);
+                    setFullDetail(initialItem); // Fallback to what we have
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchFull();
         } else {
             document.body.style.overflow = '';
+            setFullDetail(null);
         }
 
         const handlePopState = () => { if (open) onClose(); };
@@ -36,14 +54,16 @@ export function DetailModal({ item, open, onClose }: DetailModalProps) {
             window.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = '';
         };
-    }, [open, onClose]);
+    }, [open, initialItem, onClose]);
 
     const existing = useLiveQuery(
-        () => item ? db.items.where({ externalId: item.id.toString() }).first() : Promise.resolve(undefined),
-        [item?.id]
+        () => initialItem ? db.items.where({ externalId: initialItem.id.toString() }).first() : Promise.resolve(undefined),
+        [initialItem?.id]
     );
 
-    if (!open || !item) return null;
+    if (!open || !initialItem) return null;
+
+    const item = fullDetail || initialItem;
 
     const backdrop = tmdbClient.getImageUrl(item.backdrop_path || '', 'original');
     const poster = tmdbClient.getImageUrl(item.poster_path || '');
@@ -76,9 +96,16 @@ export function DetailModal({ item, open, onClose }: DetailModalProps) {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-black/30" />
 
+                        {loading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-30 transition-opacity">
+                                <Loader2 className="size-10 text-blue-500 animate-spin mb-2" />
+                                <span className="text-white text-sm font-medium">Veriler yükleniyor...</span>
+                            </div>
+                        )}
+
                         <button
                             onClick={() => window.history.back()}
-                            className="absolute top-6 right-6 size-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/80 transition z-20"
+                            className="absolute top-6 right-6 size-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/80 transition z-40"
                         >
                             <X className="size-6" />
                         </button>
