@@ -24,7 +24,7 @@ export function ContentRow({ title, items, onSelect }: ContentRowProps) {
 
     return (
         <div className="mb-10">
-            <h2 className="text-xl font-semibold text-white mb-4 px-1">{title}</h2>
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4 px-1">{title}</h2>
 
             <div className="overflow-hidden" ref={emblaRef}>
                 <div className="flex gap-4 touch-pan-y">
@@ -62,7 +62,7 @@ function ContentCard({ item, onSelect }: { item: TMDBSearchResult; onSelect?: (i
             className="flex-[0_0_160px] md:flex-[0_0_200px] relative group cursor-pointer"
             onClick={() => onSelect?.(item)}
         >
-            <div className="aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:border-zinc-700">
+            <div className="aspect-[2/3] rounded-xl overflow-hidden bg-[var(--card)] border border-[var(--border)] transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:border-[var(--primary)]/50">
                 {posterUrl ? (
                     <img
                         src={posterUrl}
@@ -71,7 +71,7 @@ function ContentCard({ item, onSelect }: { item: TMDBSearchResult; onSelect?: (i
                         loading="lazy"
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                    <div className="w-full h-full flex items-center justify-center text-[var(--muted-foreground)]">
                         No Image
                     </div>
                 )}
@@ -96,7 +96,7 @@ function ContentCard({ item, onSelect }: { item: TMDBSearchResult; onSelect?: (i
                 </div>
             </div>
 
-            <h3 className="mt-2 text-sm font-medium text-zinc-300 truncate group-hover:text-white transition-colors">
+            <h3 className="mt-2 text-sm font-medium text-[var(--muted-foreground)] truncate group-hover:text-[var(--foreground)] transition-colors">
                 {title}
             </h3>
         </div>

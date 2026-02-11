@@ -25,4 +25,5 @@ export interface AppSettings {
     tmdbApiKey?: string;
     lastSync?: number;
     language?: 'tr' | 'en';
+    theme?: 'dark' | 'light';
 }

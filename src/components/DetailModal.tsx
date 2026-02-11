@@ -176,11 +176,11 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
 
     return (
         <div
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl overflow-y-auto"
+            className="fixed inset-0 z-[100] bg-[var(--background)]/90 backdrop-blur-2xl overflow-y-auto"
             ref={scrollContainerRef}
         >
             <div className="min-h-full w-full flex items-start justify-center p-4 md:p-8 lg:p-12">
-                <div className="relative w-full max-w-6xl rounded-[28px] bg-[#0b0f1a] border border-white/5 shadow-[0_20px_120px_rgba(0,0,0,0.65)] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
+                <div className="relative w-full max-w-6xl rounded-[28px] bg-[var(--card)] border border-[var(--border)] shadow-[0_20px_120px_rgba(0,0,0,0.65)] animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute -top-40 -right-40 size-[520px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.28),transparent_60%)]" />
                         <div className="absolute -bottom-40 -left-40 size-[520px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18),transparent_60%)]" />
@@ -194,8 +194,8 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                             ) : (
                                 <div className="absolute inset-0 bg-slate-800" />
                             )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1a] via-[#0b0f1a]/70 to-transparent" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-[#0b0f1a]/80 via-transparent to-[#0b0f1a]/40" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[var(--card)] via-[var(--card)]/70 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-[var(--card)]/80 via-transparent to-[var(--card)]/40" />
 
                             {loading && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-50 transition-opacity">
@@ -206,7 +206,7 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
 
                             <button
                                 onClick={() => window.history.back()}
-                                className="absolute top-6 right-6 size-12 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black hover:scale-110 transition-all z-[60]"
+                                className="absolute top-6 right-6 size-12 rounded-full bg-[var(--card)]/60 backdrop-blur-md border border-[var(--border)] text-[var(--foreground)] flex items-center justify-center hover:bg-[var(--card)] hover:scale-110 transition-all z-[60]"
                             >
                                 <X className="size-6" />
                             </button>
@@ -225,7 +225,7 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                         {item.status && <span className="text-white/50">• {item.status}</span>}
                                     </div>
 
-                                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white leading-tight">
+                                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-[var(--foreground)] leading-tight">
                                         {title}
                                     </h2>
 
@@ -286,7 +286,7 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                 </div>
 
                                 <div className="hidden lg:flex flex-col gap-4">
-                                    <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl p-4 w-[240px]">
+                                    <div className="rounded-2xl bg-[var(--accent)]/50 border border-[var(--border)] backdrop-blur-xl p-4 w-[240px]">
                                         <div className="flex items-center gap-3">
                                             <div className="size-10 rounded-xl bg-amber-500/15 border border-amber-400/30 flex items-center justify-center">
                                                 <Star className="size-5 text-amber-400 fill-current" />
@@ -342,10 +342,10 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-10 p-6 md:p-10 lg:p-12">
                         <div className="space-y-12">
                             <section>
-                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <h3 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
                                     <Sparkles className="size-5 text-indigo-300" /> Özet
                                 </h3>
-                                <p className="text-slate-300 text-lg leading-relaxed mt-4 max-w-3xl">
+                                <p className="text-[var(--muted-foreground)] text-lg leading-relaxed mt-4 max-w-3xl">
                                     {item.overview || 'Bu içerik için bir özet bulunmuyor.'}
                                 </p>
 
@@ -409,7 +409,7 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                     </h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                         {gallery.map((img, idx) => (
-                                            <div key={`${img.file_path}-${idx}`} className="aspect-video rounded-xl overflow-hidden bg-slate-800 border border-white/5">
+                                            <div key={`${img.file_path}-${idx}`} className="aspect-video rounded-xl overflow-hidden bg-[var(--muted)] border border-[var(--border)]">
                                                 <img
                                                     src={tmdbClient.getImageUrl(img.file_path, 'w780')}
                                                     alt={`${title} still ${idx + 1}`}
@@ -421,7 +421,7 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                 </section>
                             ) : null}
 
-                            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl space-y-6">
+                            <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] backdrop-blur-xl space-y-6">
                                 <div className="flex items-center gap-4">
                                     <div className="size-12 rounded-xl bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center">
                                         <BadgeInfo className="size-6 text-indigo-300" />
@@ -501,11 +501,11 @@ export function DetailModal({ item: initialItem, open, onClose }: DetailModalPro
                                 </div>
                             </div>
 
-                            
+
 
                             {item.recommendations?.results?.length ? (
                                 <section>
-                                    <h3 className="text-xl font-bold text-white mb-6">Önerilenler</h3>
+                                    <h3 className="text-xl font-bold text-[var(--foreground)] mb-6">Önerilenler</h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                         {item.recommendations.results.slice(0, 8).map(rec => (
                                             <div key={rec.id} className="aspect-[2/3] rounded-xl overflow-hidden bg-slate-800 border border-white/5 relative group cursor-pointer shadow-lg hover:shadow-indigo-500/10 transition-all">

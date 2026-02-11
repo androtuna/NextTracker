@@ -46,8 +46,8 @@ export function HeroSection({ item, onDetails }: HeroSectionProps) {
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                 style={{ backgroundImage: `url(${backdropUrl})` }}
             >
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)] via-[var(--background)]/40 to-transparent" />
             </div>
 
             {/* Content */}
@@ -56,17 +56,17 @@ export function HeroSection({ item, onDetails }: HeroSectionProps) {
                     <span className="bg-blue-600/20 px-2 py-1 rounded border border-blue-600/30">
                         #{item.media_type === 'tv' ? t('series') || 'Series' : t('movie') || 'Movie'}
                     </span>
-                    {year && <span className="text-zinc-300">{year}</span>}
+                    {year && <span className="text-[var(--muted-foreground)]">{year}</span>}
                     <span className="flex items-center gap-1 text-yellow-500">
                         ★ {item.vote_average.toFixed(1)}
                     </span>
                 </div>
 
-                <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight tracking-tight drop-shadow-xl">
+                <h1 className="text-4xl md:text-6xl font-bold text-[var(--foreground)] leading-tight tracking-tight drop-shadow-xl">
                     {title}
                 </h1>
 
-                <p className="text-zinc-300 text-lg line-clamp-3 md:line-clamp-4 drop-shadow-md">
+                <p className="text-[var(--muted-foreground)] text-lg line-clamp-3 md:line-clamp-4 drop-shadow-md">
                     {item.overview}
                 </p>
 
@@ -79,7 +79,7 @@ export function HeroSection({ item, onDetails }: HeroSectionProps) {
                         <button
                             onClick={handleAdd}
                             disabled={isAdding}
-                            className="flex items-center gap-2 px-8 py-3 bg-white text-black hover:bg-zinc-200 rounded-lg font-bold transition-all active:scale-95"
+                            className="flex items-center gap-2 px-8 py-3 bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 rounded-lg font-bold transition-all active:scale-95"
                         >
                             <Plus className="size-5" />
                             {t('addToList') || 'Listeme Ekle'}
