@@ -21,7 +21,6 @@ app.use((req, res, next) => {
 app.use(cors());
 
 // --- MANUEL TMDB PROXY ---
-// Bu bölüm Express'in rota motoruna güvenmeden isteği yakalar
 app.use('/api/tmdb', async (req, res) => {
     const apiKey = (process.env.TMDB_API_KEY || '').trim();
     if (!apiKey) {
@@ -29,11 +28,9 @@ app.use('/api/tmdb', async (req, res) => {
         return res.status(500).json({ error: 'TMDB_API_KEY is not set' });
     }
 
-    // req.url burada /movie/popular veya /search/multi?query=... şeklindedir
     const subPath = req.url;
     const targetUrl = new URL(`https://api.themoviedb.org/3${subPath}`);
 
-    // API anahtarını ve dili ekle
     targetUrl.searchParams.set('api_key', apiKey);
     targetUrl.searchParams.set('language', 'tr-TR');
 
@@ -74,63 +71,6 @@ app.get('/api/omdb/:imdbId', async (req, res) => {
     } catch (error) {
         console.error('[OMDb Proxy Error]', error.message);
         res.status(500).json({ error: 'OMDb Connection Failed' });
-    }
-});
-
-// --- MANUEL WEBDAV PROXY ---
-app.use('/api/proxy', async (req, res) => {
-    const targetUrlHeader = req.headers['x-target-url'];
-    if (!targetUrlHeader) return res.status(400).send('Missing x-target-url');
-
-    try {
-        const targetUrl = new URL(targetUrlHeader);
-
-        // Forward all relevant headers for WebDAV, but be careful with some
-        const headers = {};
-        const blockedHeaders = [
-            'host',
-            'connection',
-            'x-target-url',
-            'content-length', // Let fetch calculate this to avoid 412/400 errors
-            'expect',         // 'Expect: 100-continue' can break some proxies
-            'cookie',       // Block browser cookies to avoid Nextcloud's 'Strict Cookie Check'
-            'cookie2',
-            'set-cookie'
-        ];
-
-        Object.entries(req.headers).forEach(([key, value]) => {
-            if (!blockedHeaders.includes(key.toLowerCase())) {
-                headers[key] = value;
-            }
-        });
-        headers['host'] = targetUrl.host;
-
-        // Determine if we should send a body
-        const hasBody = !['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(req.method);
-
-        const response = await fetch(targetUrlHeader, {
-            method: req.method,
-            headers: headers,
-            body: hasBody ? req : undefined,
-            // @ts-ignore
-            duplex: hasBody ? 'half' : undefined,
-            redirect: 'follow'
-        });
-
-        const data = await response.text();
-
-        // Forward back response headers
-        response.headers.forEach((value, key) => {
-            // Skip headers that could cause issues with the client
-            if (!['content-encoding', 'transfer-encoding', 'connection'].includes(key.toLowerCase())) {
-                res.setHeader(key, value);
-            }
-        });
-
-        res.status(response.status).send(data);
-    } catch (error) {
-        console.error('[Generic Proxy Error]', error.message);
-        res.status(500).send(`Proxy Error: ${error.message}`);
     }
 });
 

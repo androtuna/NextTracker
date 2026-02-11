@@ -23,9 +23,6 @@ export interface TrackableItem {
 export interface AppSettings {
     id?: number; // Singleton ID (usually 1)
     tmdbApiKey?: string;
-    nextcloudUrl?: string;
-    nextcloudUsername?: string;
-    nextcloudPassword?: string; // App password
     lastSync?: number;
     language?: 'tr' | 'en';
 }

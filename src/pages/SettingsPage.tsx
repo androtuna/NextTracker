@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe } from 'lucide-react';
+import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe, Database } from 'lucide-react';
 import { getSettings, saveSettings } from '@/db/db';
 import { syncService } from '@/features/sync/syncService';
 import type { AppSettings } from '@/types';
-
 import { useTranslation } from '@/lib/i18n';
 
 export default function SettingsPage() {
@@ -27,77 +26,21 @@ export default function SettingsPage() {
             setStatus('success');
             setMessage(t('saved'));
             setTimeout(() => setStatus('idle'), 2000);
-
-            // Force reload to apply language change if any
-            // Ideally we should use context api but for now liveQuery handles reads, 
-            // but static UI parts might need re-render or reload.
-            // Since useTranslation reads from liveQuery, it should be reactive for components using it.
         } catch (e) {
             setStatus('error');
             setMessage(t('saveError'));
         }
     };
-    const handleCloudPush = async () => {
-        if (!confirm(t('pushConfirm') || 'Yerel verileriniz buluta yüklenecek (dosya üzerine yazılacak). Onaylıyor musunuz?')) return;
-        setStatus('syncing');
-        setMessage(t('backingUp'));
-        try {
-            // Auto save settings first to ensure the cloud settings are persistent
-            await saveSettings(settings);
-
-            await syncService.pushToNextcloud(settings);
-            const s = await getSettings();
-            setSettingsState(s);
-            setStatus('success');
-            setMessage(t('backupSuccess'));
-        } catch (e: any) {
-            setStatus('error');
-            setMessage(`${t('error')}: ${e.message}`);
-        }
-    };
-
-    const handleCloudPull = async () => {
-        if (!confirm(t('restoreConfirm'))) return;
-        setStatus('syncing');
-        setMessage(t('restoring'));
-        try {
-            await syncService.pullFromNextcloud(settings);
-            const s = await getSettings();
-            setSettingsState(s);
-            setStatus('success');
-            setMessage(t('restoreSuccess'));
-            setTimeout(() => window.location.reload(), 1500);
-        } catch (e: any) {
-            setStatus('error');
-            setMessage(`${t('error')}: ${e.message}`);
-        }
-    };
-
-    const handleTestConnection = async () => {
-        setStatus('syncing');
-        setMessage(t('testing'));
-        try {
-            // Auto save settings first
-            await saveSettings(settings);
-
-            await syncService.testConnection(settings);
-            setStatus('success');
-            setMessage(t('testSuccess'));
-            setTimeout(() => setStatus('idle'), 3000);
-        } catch (e: any) {
-            setStatus('error');
-            setMessage(`${t('testFail')}: ${e.message}`);
-        }
-    };
-
 
     const handleBackup = async () => {
         setStatus('syncing');
         setMessage(t('backingUp'));
         try {
-            await syncService.exportToJSON();
+            const count = await syncService.exportToJSON();
+            const s = await getSettings();
+            setSettingsState(s);
             setStatus('success');
-            setMessage(t('backupSuccess'));
+            setMessage(`${count} öğe başarıyla yedeklendi.`);
         } catch (e: any) {
             setStatus('error');
             setMessage(`${t('error')}: ${e.message}`);
@@ -109,22 +52,22 @@ export default function SettingsPage() {
         if (!file) return;
 
         if (!confirm(t('restoreConfirm'))) {
-            event.target.value = ''; // Reset input
+            event.target.value = '';
             return;
         }
 
         setStatus('syncing');
         setMessage(t('restoring'));
         try {
-            await syncService.importFromJSON(file);
+            const count = await syncService.importFromJSON(file);
             setStatus('success');
-            setMessage(t('restoreSuccess'));
+            setMessage(`${count} öğe başarıyla geri yüklendi.`);
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             setStatus('error');
             setMessage(`${t('error')}: ${e.message}`);
         } finally {
-            event.target.value = ''; // Reset input so same file can be selected again
+            event.target.value = '';
         }
     };
 
@@ -136,8 +79,8 @@ export default function SettingsPage() {
             </header>
 
             <div className="space-y-8">
-                {/* Language Configuration */}
-                <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+                {/* Dil Ayarları */}
+                <section className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 shadow-xl">
                     <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                         <Globe className="size-5 text-blue-500" />
                         {t('language')}
@@ -145,161 +88,90 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <button
                             onClick={() => handleChange('language', 'tr')}
-                            className={`p-4 rounded-lg border text-center transition-all ${settings.language === 'tr' || !settings.language ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800'}`}
+                            className={`p-4 rounded-xl border text-center transition-all ${settings.language === 'tr' || !settings.language ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800 hover:text-gray-200'}`}
                         >
                             Türkçe
                         </button>
                         <button
                             onClick={() => handleChange('language', 'en')}
-                            className={`p-4 rounded-lg border text-center transition-all ${settings.language === 'en' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800'}`}
+                            className={`p-4 rounded-xl border text-center transition-all ${settings.language === 'en' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-gray-400 hover:bg-zinc-800 hover:text-gray-200'}`}
                         >
                             English
                         </button>
                     </div>
                 </section>
 
-                {/* Nextcloud / WebDAV Configuration */}
-                <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-                    <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        <RefreshCw className="size-5 text-green-500" />
-                        Nextcloud / WebDAV {t('sync')}
-                    </h2>
-                    <p className="text-gray-400 text-sm mb-6">
-                        {t('cloudSyncDesc') || 'Verilerinizi bulutta saklayın. Tarayıcıyı temizleseniz de verileriniz güvende kalır.'}
-                    </p>
-
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">WebDAV URL</label>
-                                <input
-                                    type="text"
-                                    value={settings.nextcloudUrl || ''}
-                                    onChange={e => handleChange('nextcloudUrl', e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                    placeholder="https://nextcloud.example.com/remote.php/dav/files/user/"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">{t('username') || 'Kullanıcı Adı'}</label>
-                                <input
-                                    type="text"
-                                    value={settings.nextcloudUsername || ''}
-                                    onChange={e => handleChange('nextcloudUsername', e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">{t('password') || 'Uygulama Şifresi'}</label>
-                            <input
-                                type="password"
-                                value={settings.nextcloudPassword || ''}
-                                onChange={e => handleChange('nextcloudPassword', e.target.value)}
-                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
-                                placeholder="****-****-****-****"
-                            />
-                            <p className="text-xs text-gray-600 mt-2">Nextcloud &gt; Ayarlar &gt; Güvenlik &gt; Uygulama Şifreleri kısmından oluşturun.</p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-4 pt-2">
-                            <button
-                                onClick={handleTestConnection}
-                                disabled={status === 'syncing'}
-                                className="flex items-center gap-2 px-6 py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-lg font-medium transition-colors border border-zinc-700"
-                            >
-                                <RefreshCw className={`size-5 ${status === 'syncing' ? 'animate-spin' : ''}`} />
-                                {t('testConnection') || 'Bağlantıyı Test Et'}
-                            </button>
-                            <button
-                                onClick={handleCloudPush}
-                                disabled={status === 'syncing'}
-                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium transition-colors border border-blue-500"
-                            >
-                                <CloudUpload className="size-5" />
-                                {t('pushToCloud') || 'Buluta Gönder'}
-                            </button>
-                            <button
-                                onClick={handleCloudPull}
-                                disabled={status === 'syncing'}
-                                className="flex items-center gap-2 px-6 py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-lg font-medium transition-colors border border-zinc-700"
-                            >
-                                <CloudDownload className="size-5" />
-                                {t('pullFromCloud') || 'Buluttan Getir'}
-                            </button>
-                        </div>
-
-                        {/* Inline status for sync */}
-                        {(status === 'syncing' || (status !== 'saving' && status !== 'idle')) && message && (
-                            <div className={`text-sm mt-2 flex items-center gap-2 ${status === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
-                                {status === 'syncing' && <RefreshCw className="size-4 animate-spin" />}
-                                {status === 'success' && <CheckCircle className="size-4 text-green-400" />}
-                                {status === 'error' && <AlertCircle className="size-4" />}
-                                {message}
-                            </div>
-                        )}
-
-                        {settings.lastSync && (
-                            <p className="text-xs text-gray-500 mt-2">
-                                {t('lastSync') || 'Son Senkronizasyon'}: {new Date(settings.lastSync).toLocaleString()}
-                            </p>
-                        )}
+                {/* Veri Yedekleme ve Geri Yükleme */}
+                <section className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                        <Database className="size-32" />
                     </div>
-                </section>
 
-                {/* Backup & Restore (JSON) */}
-                <section className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
-
-                    <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        {t('syncConfig')} (JSON)
+                    <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                        <Database className="size-6 text-green-500" />
+                        Veri Yönetimi
                     </h2>
-                    <p className="text-gray-400 text-sm mb-6">
-                        {t('backupDesc') || 'Verilerinizi JSON dosyası olarak indirin veya geri yükleyin. Veriler cihazınızda kalır.'}
+                    <p className="text-gray-400 mb-8 max-w-lg">
+                        Tüm koleksiyonunuzu güvenli bir JSON dosyası olarak cihazınıza yedekleyebilir veya daha önce aldığınız bir yedeği sisteme yükleyebilirsiniz.
                     </p>
 
-                    <div className="flex flex-wrap gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <button
                             onClick={handleBackup}
                             disabled={status === 'syncing'}
-                            className="flex items-center gap-2 px-6 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 rounded-lg font-medium transition-colors border border-blue-600/20"
+                            className="flex flex-col items-center justify-center gap-4 p-8 bg-zinc-950 border border-zinc-800 rounded-2xl hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group"
                         >
-                            <CloudUpload className="size-5" />
-                            {t('downloadBackup') || 'Yedeği İndir'}
+                            <div className="size-14 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <CloudUpload className="size-7 text-blue-500" />
+                            </div>
+                            <div className="text-center">
+                                <span className="block text-white font-semibold text-lg">Yedeği İndir</span>
+                                <span className="text-sm text-gray-500">Tüm verileri .json olarak paketle</span>
+                            </div>
                         </button>
 
-                        <div className="relative">
+                        <div className="relative group">
                             <input
                                 type="file"
                                 accept=".json"
                                 onChange={handleRestore}
-                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                 disabled={status === 'syncing'}
                             />
-                            <button
-                                disabled={status === 'syncing'}
-                                className="flex items-center gap-2 px-6 py-3 bg-red-600/10 text-red-400 hover:bg-red-600/20 rounded-lg font-medium transition-colors border border-red-600/20"
-                            >
-                                <CloudDownload className="size-5" />
-                                {t('restoreBackup') || 'Yedeği Yükle'}
-                            </button>
+                            <div className="flex flex-col items-center justify-center gap-4 p-8 bg-zinc-950 border border-zinc-800 rounded-2xl group-hover:border-red-500/50 group-hover:bg-red-500/5 transition-all">
+                                <div className="size-14 rounded-full bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <CloudDownload className="size-7 text-red-500" />
+                                </div>
+                                <div className="text-center">
+                                    <span className="block text-white font-semibold text-lg">Yedeği Yükle</span>
+                                    <span className="text-sm text-gray-500">Mevcut verilerin üzerine yazılır</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+                    {settings.lastSync && (
+                        <div className="mt-8 flex items-center gap-2 text-sm text-gray-500 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 w-fit">
+                            <RefreshCw className="size-4" />
+                            Son Etkinlik: {new Date(settings.lastSync).toLocaleString()}
+                        </div>
+                    )}
                 </section>
 
-                {/* Global Save */}
-                <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
+                {/* Alt Kaydetme Barı */}
+                <div className="flex items-center justify-between pt-6 border-t border-zinc-800">
                     <div className="text-sm">
-                        {status === 'success' && <span className="text-green-400 flex items-center gap-2"><CheckCircle className="size-4" /> {message}</span>}
-                        {status === 'error' && <span className="text-red-400 flex items-center gap-2"><AlertCircle className="size-4" /> {message}</span>}
-                        {status === 'syncing' && <span className="text-blue-400 flex items-center gap-2"><RefreshCw className="size-4 animate-spin" /> {message}</span>}
+                        {status === 'success' && <span className="text-green-400 flex items-center gap-2 font-medium"><CheckCircle className="size-4" /> {message}</span>}
+                        {status === 'error' && <span className="text-red-400 flex items-center gap-2 font-medium"><AlertCircle className="size-4" /> {message}</span>}
+                        {status === 'syncing' && <span className="text-blue-400 flex items-center gap-2 font-medium"><RefreshCw className="size-4 animate-spin" /> {message}</span>}
                     </div>
 
                     <button
                         onClick={handleSave}
                         disabled={status !== 'idle' && status !== 'success' && status !== 'error'}
-                        className="flex items-center gap-2 px-8 py-3 bg-white text-black hover:bg-gray-200 rounded-full font-medium transition-colors shadow-lg shadow-white/10"
+                        className="flex items-center gap-2 px-10 py-4 bg-white text-black hover:bg-gray-100 rounded-full font-bold transition-all shadow-xl shadow-white/5 active:scale-95"
                     >
-                        <Save className="size-4" /> {t('save')}
+                        <Save className="size-5" /> {t('save')}
                     </button>
                 </div>
             </div>
