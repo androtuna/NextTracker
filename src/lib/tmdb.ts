@@ -105,13 +105,35 @@ export interface TMDBSearchResponse {
     total_results: number;
 }
 
+import { db } from '@/db/db';
+
 async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) {
-    // Ensure endpoint starts with /
+    const settings = await db.settings.get(1);
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-    // We use a relative path to the local proxy which securely handles the API Key
-    const url = new URL(`/api/tmdb${cleanEndpoint}`, window.location.origin);
+    // Default language from settings or browser
+    const lang = settings?.language === 'en' ? 'en-US' : 'tr-TR';
 
+    // If user provided a LOCAL API KEY, talk directly to TMDB
+    if (settings?.tmdbApiKey) {
+        const url = new URL(`https://api.themoviedb.org/3${cleanEndpoint}`);
+        url.searchParams.set('api_key', settings.tmdbApiKey);
+        url.searchParams.set('language', lang);
+
+        Object.entries(params).forEach(([key, value]) => {
+            url.searchParams.append(key, value);
+        });
+
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.status_message || `TMDB Error (${res.status})`);
+        }
+        return res.json();
+    }
+
+    // FALLBACK: Use local server proxy (server.js handles key and language)
+    const url = new URL(`/api/tmdb${cleanEndpoint}`, window.location.origin);
     Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);
     });

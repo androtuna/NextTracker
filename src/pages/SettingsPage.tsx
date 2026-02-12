@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe, Database } from 'lucide-react';
+import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe, Database, Key, Settings } from 'lucide-react';
 import { getSettings, saveSettings } from '@/db/db';
 import { syncService } from '@/features/sync/syncService';
 import type { AppSettings } from '@/types';
@@ -98,6 +98,36 @@ export default function SettingsPage() {
                         >
                             Aydınlık
                         </button>
+                    </div>
+                </section>
+
+                {/* Bağlantı Ayarları */}
+                <section className="bg-[var(--card)] rounded-2xl p-6 border border-[var(--border)] shadow-xl">
+                    <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                        <Settings className="size-5 text-blue-500" />
+                        Bağlantı Ayarları
+                    </h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mb-6">
+                        Uygulamanın film verilerini çekebilmesi için TMDB bağlantısı gereklidir. Varsayılan olarak sunucu üzerindeki güvenli proxy kullanılır.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[var(--muted-foreground)] flex items-center gap-2">
+                                <Key className="size-4" />
+                                Kendi TMDB API Anahtarım (Opsiyonel)
+                            </label>
+                            <input
+                                type="password"
+                                value={settings.tmdbApiKey || ''}
+                                onChange={(e) => handleChange('tmdbApiKey', e.target.value)}
+                                placeholder="T3S5T..."
+                                className="w-full bg-[var(--input)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--foreground)] focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-[var(--muted-foreground)]/30"
+                            />
+                            <p className="text-[11px] text-[var(--muted-foreground)] opacity-70">
+                                * Eğer lokal kurulumda sunucu (server.js) çalıştırmıyorsanız kendi API anahtarınızı girmelisiniz. Boş bırakılırsa sunucu proxy'si kullanılır.
+                            </p>
+                        </div>
                     </div>
                 </section>
 
