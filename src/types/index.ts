@@ -27,3 +27,14 @@ export interface AppSettings {
     language?: 'tr' | 'en';
     theme?: 'dark' | 'light';
 }
+
+export interface BookSearchResult {
+    id: string;
+    title: string;
+    authors: string[];
+    thumbnail?: string;
+    description?: string;
+    pageCount?: number;
+    publishedDate?: string;
+    publisher?: string;
+}

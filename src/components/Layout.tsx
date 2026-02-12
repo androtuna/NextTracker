@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Search, Settings } from 'lucide-react';
+import { LayoutDashboard, Search, Settings, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import logo from '@/assets/logo.png';
@@ -33,6 +33,7 @@ export default function Layout() {
                 <nav className="flex flex-col gap-1 flex-1">
                     <NavItem to="/" icon={LayoutDashboard}>{t('dashboard')}</NavItem>
                     <NavItem to="/search" icon={Search}>{t('search')}</NavItem>
+                    <NavItem to="/books" icon={BookOpen}>Kitaplar</NavItem>
                     <NavItem to="/settings" icon={Settings}>{t('settings')}</NavItem>
                 </nav>
 
@@ -50,6 +51,7 @@ export default function Layout() {
             <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--card)]/90 backdrop-blur-lg flex justify-around p-2 pb-6 safe-area-pb z-50 transition-colors">
                 <MobileNavItem to="/" icon={LayoutDashboard} label={t('dashboard')} />
                 <MobileNavItem to="/search" icon={Search} label={t('search')} />
+                <MobileNavItem to="/books" icon={BookOpen} label="Kitaplar" />
                 <MobileNavItem to="/settings" icon={Settings} label={t('settings')} />
             </nav>
         </div>
@@ -62,8 +64,8 @@ function NavItem({ to, icon: Icon, children }: { to: string, icon: any, children
             to={to}
             className={({ isActive }) => cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                "hover:bg-zinc-900 hover:text-white",
-                isActive ? "bg-zinc-800 text-blue-400 font-medium shadow-sm" : "text-gray-400"
+                "hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                isActive ? "bg-[var(--primary)]/10 text-[var(--primary)] font-medium shadow-sm" : "text-[var(--muted-foreground)]"
             )}
         >
             <Icon className="size-5" />
@@ -78,7 +80,7 @@ function MobileNavItem({ to, icon: Icon, label }: { to: string, icon: any, label
             to={to}
             className={({ isActive }) => cn(
                 "flex flex-col items-center gap-1 p-2 rounded-lg transition-colors",
-                isActive ? "text-blue-400" : "text-gray-500"
+                isActive ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"
             )}
         >
             <Icon className="size-6" />
