@@ -32,8 +32,8 @@ export default function Layout() {
 
                 <nav className="flex flex-col gap-1 flex-1">
                     <NavItem to="/" icon={LayoutDashboard}>{t('dashboard')}</NavItem>
-                    <NavItem to="/search" icon={Search}>{t('search')}</NavItem>
-                    <NavItem to="/books" icon={BookOpen}>Kitaplar</NavItem>
+                    <NavItem to="/search" icon={Search}>{t('moviesAndSeries')}</NavItem>
+                    <NavItem to="/books" icon={BookOpen}>{t('books')}</NavItem>
                     <NavItem to="/settings" icon={Settings}>{t('settings')}</NavItem>
                 </nav>
 
