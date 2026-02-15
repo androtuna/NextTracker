@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Search, Settings, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -5,7 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import logo from '@/assets/logo.png';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
-import { useEffect } from 'react';
+import { googleDriveService } from '@/features/sync/googleDriveService';
 
 export default function Layout() {
     const { t } = useTranslation();
@@ -18,6 +19,34 @@ export default function Layout() {
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', theme === 'dark' ? '#09090b' : '#ffffff');
     }, [settings?.theme]);
+
+    // Auto-backup logic
+    useEffect(() => {
+        const checkAutoBackup = async () => {
+            if (!settings?.autoBackupEnabled || !settings?.googleAccessToken) return;
+
+            const LAST_BACKUP_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours
+            const now = Date.now();
+            const lastBackup = settings.lastAutoBackup || 0;
+
+            if (now - lastBackup > LAST_BACKUP_THRESHOLD) {
+                const token = await googleDriveService.getValidToken();
+                if (token) {
+                    console.log('Automated Daily Backup starting...');
+                    try {
+                        await googleDriveService.uploadBackup(token);
+                        console.log('Automated Daily Backup successful.');
+                    } catch (err) {
+                        console.error('Automated Daily Backup failed:', err);
+                    }
+                }
+            }
+        };
+
+        if (settings) {
+            checkAutoBackup();
+        }
+    }, [settings?.autoBackupEnabled, settings?.lastAutoBackup]);
 
     return (
         <div className="flex h-screen bg-[var(--background)] text-[var(--foreground)] font-sans overflow-hidden transition-colors duration-300">

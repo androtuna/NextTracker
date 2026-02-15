@@ -23,6 +23,11 @@ export interface TrackableItem {
 export interface AppSettings {
     id?: number; // Singleton ID (usually 1)
     tmdbApiKey?: string;
+    googleClientId?: string;
+    googleAccessToken?: string;
+    googleTokenExpiry?: number;
+    autoBackupEnabled?: boolean;
+    lastAutoBackup?: number;
     lastSync?: number;
     language?: 'tr' | 'en';
     theme?: 'dark' | 'light';

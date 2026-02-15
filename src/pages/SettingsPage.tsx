@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe, Database, Key, Settings } from 'lucide-react';
+import { Save, CloudUpload, CloudDownload, RefreshCw, CheckCircle, AlertCircle, Globe, Database, Key, Settings, Cloud, ExternalLink } from 'lucide-react';
 import { getSettings, saveSettings } from '@/db/db';
 import { syncService } from '@/features/sync/syncService';
+import { googleDriveService } from '@/features/sync/googleDriveService';
 import type { AppSettings } from '@/types';
 import { useTranslation } from '@/lib/i18n';
 
@@ -15,7 +16,7 @@ export default function SettingsPage() {
         getSettings().then(setSettingsState);
     }, []);
 
-    const handleChange = (key: keyof AppSettings, value: string) => {
+    const handleChange = (key: keyof AppSettings, value: any) => {
         setSettingsState(prev => ({ ...prev, [key]: value }));
     };
 
@@ -29,6 +30,49 @@ export default function SettingsPage() {
         } catch (e) {
             setStatus('error');
             setMessage(t('saveError'));
+        }
+    };
+
+    const handleGoogleConnect = async () => {
+        if (!settings.googleClientId) {
+            setStatus('error');
+            setMessage('Lütfen önce bir Google Client ID girin.');
+            return;
+        }
+
+        setStatus('syncing');
+        setMessage('Google Drive\'a bağlanıyor...');
+        try {
+            await googleDriveService.connect(settings.googleClientId);
+            const updatedSettings = await getSettings();
+            setSettingsState(updatedSettings);
+            setStatus('success');
+            setMessage('Google Drive bağlantısı başarılı.');
+        } catch (e: any) {
+            setStatus('error');
+            setMessage(`Bağlantı hatası: ${e.message || 'Bilinmeyen hata'}`);
+        }
+    };
+
+    const handleDriveBackup = async () => {
+        const token = await googleDriveService.getValidToken();
+        if (!token) {
+            setStatus('error');
+            setMessage('Google oturumunuz süresi dolmuş. Lütfen tekrar bağlanın.');
+            return;
+        }
+
+        setStatus('syncing');
+        setMessage('Drive\'a yedekleniyor...');
+        try {
+            await googleDriveService.uploadBackup(token);
+            const updatedSettings = await getSettings();
+            setSettingsState(updatedSettings);
+            setStatus('success');
+            setMessage('Bulut yedekleme başarılı!');
+        } catch (e: any) {
+            setStatus('error');
+            setMessage(`Drive hatası: ${e.message}`);
         }
     };
 
@@ -71,6 +115,8 @@ export default function SettingsPage() {
         }
     };
 
+    const isGoogleConnected = settings.googleAccessToken && (settings.googleTokenExpiry || 0) > Date.now();
+
     return (
         <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-10 text-[var(--foreground)]">
             <header>
@@ -79,7 +125,7 @@ export default function SettingsPage() {
             </header>
 
             <div className="space-y-8">
-                {/* Tema Ayarları */}
+                {/* Tema Ayarları section... */}
                 <section className="bg-[var(--card)] rounded-2xl p-6 border border-[var(--border)] shadow-xl">
                     <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
                         <Database className="size-5 text-purple-500" />
@@ -101,7 +147,84 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {/* Bağlantı Ayarları */}
+                {/* Bulut Yedekleme (Google Drive) */}
+                <section className="bg-[var(--card)] rounded-2xl p-6 border border-[var(--border)] shadow-xl overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                        <Cloud className="size-24" />
+                    </div>
+
+                    <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                        <Cloud className="size-5 text-blue-400" />
+                        Bulut Yedekleme (Google Drive)
+                    </h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mb-6">
+                        Verilerinizi Google Drive hesabınızda güvenle saklayın ve otomatik yedeklemeleri etkinleştirin.
+                    </p>
+
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[var(--muted-foreground)] flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Key className="size-4" /> Google Client ID</span>
+                                <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1 text-[11px]">
+                                    Anahtar Oluştur <ExternalLink className="size-3" />
+                                </a>
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.googleClientId || ''}
+                                onChange={(e) => handleChange('googleClientId', e.target.value)}
+                                placeholder="4521...apps.googleusercontent.com"
+                                className="w-full bg-[var(--input)] border border-[var(--border)] rounded-xl px-4 py-3 text-[var(--foreground)] focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-[var(--muted-foreground)]/30"
+                            />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-[var(--input)]/50 border border-[var(--border)] rounded-xl">
+                            <div className="flex items-center gap-4">
+                                <div className={`size-3 rounded-full ${isGoogleConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                                <div>
+                                    <span className="block text-sm font-semibold">{isGoogleConnected ? 'Bağlantı Aktif' : 'Bağlı Değil'}</span>
+                                    {settings.lastAutoBackup && (
+                                        <span className="text-[11px] text-[var(--muted-foreground)]">Son Yedekleme: {new Date(settings.lastAutoBackup).toLocaleString()}</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleGoogleConnect}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    {isGoogleConnected ? 'Yeniden Bağlan' : 'Google\'a Bağlan'}
+                                </button>
+                                {isGoogleConnected && (
+                                    <button
+                                        onClick={handleDriveBackup}
+                                        className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--border)] text-[var(--foreground)] rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                    >
+                                        <RefreshCw className="size-4" /> Hemen Yedekle
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {isGoogleConnected && (
+                            <div className="flex items-center justify-between p-4 border border-[var(--border)] rounded-xl">
+                                <div>
+                                    <span className="block text-sm font-medium">Otomatik Günlük Yedekleme</span>
+                                    <span className="text-xs text-[var(--muted-foreground)]">Uygulama açıldığında 24 saatte bir yedek alınır.</span>
+                                </div>
+                                <button
+                                    onClick={() => handleChange('autoBackupEnabled', !settings.autoBackupEnabled)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.autoBackupEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.autoBackupEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Bağlantı Ayarları section (TMDB)... */}
                 <section className="bg-[var(--card)] rounded-2xl p-6 border border-[var(--border)] shadow-xl">
                     <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
                         <Settings className="size-5 text-blue-500" />
@@ -131,7 +254,7 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {/* Dil Ayarları */}
+                {/* Dil Ayarları section... */}
                 <section className="bg-[var(--card)] rounded-2xl p-6 border border-[var(--border)] shadow-xl">
                     <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
                         <Globe className="size-5 text-blue-500" />
@@ -153,7 +276,7 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {/* Veri Yedekleme ve Geri Yükleme */}
+                {/* Veri Yedekleme ve Geri Yükleme section... */}
                 <section className="bg-[var(--card)] rounded-2xl p-8 border border-[var(--border)] shadow-xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                         <Database className="size-32" />
@@ -202,10 +325,20 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    {settings.lastSync && (
-                        <div className="mt-8 flex items-center gap-2 text-sm text-[var(--muted-foreground)] bg-[var(--input)]/50 p-4 rounded-xl border border-[var(--border)]/50 w-fit">
-                            <RefreshCw className="size-4" />
-                            Son Etkinlik: {new Date(settings.lastSync).toLocaleString()}
+                    {(settings.lastSync || settings.lastAutoBackup) && (
+                        <div className="mt-8 flex flex-wrap gap-4">
+                            {settings.lastSync && (
+                                <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] bg-[var(--input)]/50 p-4 rounded-xl border border-[var(--border)]/50 w-fit">
+                                    <RefreshCw className="size-4" />
+                                    Son Yerel Yedek: {new Date(settings.lastSync).toLocaleString()}
+                                </div>
+                            )}
+                            {settings.lastAutoBackup && (
+                                <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] bg-[var(--input)]/50 p-4 rounded-xl border border-[var(--border)]/50 w-fit">
+                                    <Cloud className="size-4 text-blue-400" />
+                                    Son Drive Yedeği: {new Date(settings.lastAutoBackup).toLocaleString()}
+                                </div>
+                            )}
                         </div>
                     )}
                 </section>
